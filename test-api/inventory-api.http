@@ -1,0 +1,448 @@
+# Inventory API Test Suite
+# Use with REST Client extension for VSCode
+# https://marketplace.visualstudio.com/items\?itemName\=humao.rest-client
+
+@baseUrl = http://localhost:8080
+@apiVersion = /api/v1
+
+# Variables for testing (update these based on your seed data)
+@productId = prod-001
+@requestId = {{$guid}}
+@reservationId = reservation-123
+
+###############################################################################
+# HEALTH & STATUS ENDPOINTS
+###############################################################################
+
+### 1. Basic Health Check
+# Simple health check endpoint
+GET {{baseUrl}}/health
+Content-Type: application/json
+
+###############################################################################
+# INVENTORY STOCK OPERATIONS
+###############################################################################
+
+### 3. Get Stock Information
+# Retrieve stock details for a specific product
+GET {{baseUrl}}{{apiVersion}}/inventory/stock/{{productId}}
+Content-Type: application/json
+X-Request-ID: req-get-stock-{{$timestamp}}
+
+###
+
+### 4. Get Stock - Product Not Found (Test Error Handling)
+# Test 404 error when product doesn't exist
+GET {{baseUrl}}{{apiVersion}}/inventory/stock/non-existent-product
+Content-Type: application/json
+X-Request-ID: req-get-stock-404-{{$timestamp}}
+
+###############################################################################
+# RESERVE STOCK OPERATIONS
+###############################################################################
+
+### 5. Reserve Stock - Simple
+# Basic stock reservation with minimal parameters
+POST {{baseUrl}}{{apiVersion}}/inventory/reserve
+Content-Type: application/json
+X-Request-ID: req-reserve-{{$guid}}
+
+{
+  "product_id": "{{productId}}",
+  "quantity": 2,
+  "request_id": "{{$guid}}",
+  "timeout_seconds": 300,
+  "reason": "Customer order",
+  "metadata": {
+    "order_id": "ORD-{{$timestamp}}",
+    "customer_id": "CUST-12345"
+  }
+}
+
+###
+
+### 6. Reserve Stock - With Custom Timeout
+# Reserve stock with 10 minute timeout
+POST {{baseUrl}}{{apiVersion}}/inventory/reserve
+Content-Type: application/json
+X-Request-ID: req-reserve-timeout-{{$guid}}
+
+{
+  "product_id": "{{productId}}",
+  "quantity": 1,
+  "request_id": "{{$guid}}",
+  "timeout_seconds": 600,
+  "reason": "Extended checkout session",
+  "client_id": "web-app",
+  "metadata": {
+    "session_id": "sess-{{$timestamp}}",
+    "checkout_step": "payment"
+  }
+}
+
+###
+
+### 7. Reserve Stock - Idempotency Test
+# Test idempotency by using the same request_id twice
+# First request
+POST {{baseUrl}}{{apiVersion}}/inventory/reserve
+Content-Type: application/json
+X-Request-ID: req-idempotency-test
+
+{
+  "product_id": "{{productId}}",
+  "quantity": 1,
+  "request_id": "idempotency-test-123",
+  "timeout_seconds": 300,
+  "reason": "Idempotency test"
+}
+
+###
+
+### 8. Reserve Stock - Same Request ID (Should return cached result)
+# Second request with same request_id - should return same result
+POST {{baseUrl}}{{apiVersion}}/inventory/reserve
+Content-Type: application/json
+X-Request-ID: req-idempotency-test-2
+
+{
+  "product_id": "{{productId}}",
+  "quantity": 1,
+  "request_id": "idempotency-test-123",
+  "timeout_seconds": 300,
+  "reason": "Idempotency test duplicate"
+}
+
+###
+
+### 9. Reserve Stock - Insufficient Stock (Test Error)
+# Try to reserve more stock than available
+POST {{baseUrl}}{{apiVersion}}/inventory/reserve
+Content-Type: application/json
+X-Request-ID: req-reserve-error-{{$guid}}
+
+{
+  "product_id": "{{productId}}",
+  "quantity": 999999,
+  "request_id": "{{$guid}}",
+  "timeout_seconds": 300,
+  "reason": "Test insufficient stock error"
+}
+
+###############################################################################
+# BATCH RESERVE OPERATIONS
+###############################################################################
+
+### 10. Batch Reserve Stock
+# Reserve stock for multiple products in one request
+POST {{baseUrl}}{{apiVersion}}/inventory/batch/reserve
+Content-Type: application/json
+X-Request-ID: req-batch-{{$guid}}
+
+{
+  "requests": [
+    {
+      "product_id": "prod-001",
+      "quantity": 1,
+      "request_id": "batch-{{$guid}}-1",
+      "timeout_seconds": 300,
+      "reason": "Batch order item 1"
+    },
+    {
+      "product_id": "prod-002",
+      "quantity": 2,
+      "request_id": "batch-{{$guid}}-2",
+      "timeout_seconds": 300,
+      "reason": "Batch order item 2"
+    },
+    {
+      "product_id": "prod-003",
+      "quantity": 1,
+      "request_id": "batch-{{$guid}}-3",
+      "timeout_seconds": 300,
+      "reason": "Batch order item 3"
+    }
+  ]
+}
+
+###############################################################################
+# RELEASE STOCK OPERATIONS
+###############################################################################
+
+### 11. Release Stock Reservation
+# Release a previously created reservation
+# NOTE: Update reservation_id with actual ID from reserve response
+POST {{baseUrl}}{{apiVersion}}/inventory/release
+Content-Type: application/json
+X-Request-ID: req-release-{{$guid}}
+
+{
+  "reservation_id": "REPLACE_WITH_ACTUAL_RESERVATION_ID",
+  "reason": "cancelled",
+  "request_id": "{{$guid}}"
+}
+
+###
+
+### 12. Release Stock - Order Purchased
+# Release reservation when order is completed
+POST {{baseUrl}}{{apiVersion}}/inventory/release
+Content-Type: application/json
+X-Request-ID: req-release-purchased-{{$guid}}
+
+{
+  "reservation_id": "REPLACE_WITH_ACTUAL_RESERVATION_ID",
+  "reason": "purchased",
+  "request_id": "{{$guid}}"
+}
+
+###
+
+### 13. Release Stock - Timeout
+# Release reservation due to timeout
+POST {{baseUrl}}{{apiVersion}}/inventory/release
+Content-Type: application/json
+X-Request-ID: req-release-timeout-{{$guid}}
+
+{
+  "reservation_id": "REPLACE_WITH_ACTUAL_RESERVATION_ID",
+  "reason": "timeout",
+  "request_id": "{{$guid}}"
+}
+
+###############################################################################
+# UPDATE STOCK OPERATIONS
+###############################################################################
+
+### 14. Update Stock - Restock (Add inventory)
+# Add new inventory to existing stock
+PUT {{baseUrl}}{{apiVersion}}/inventory/stock
+Content-Type: application/json
+X-Request-ID: req-update-restock-{{$guid}}
+
+{
+  "product_id": "{{productId}}",
+  "new_stock": 50,
+  "adjustment_type": "restock",
+  "reason": "New shipment received",
+  "reference": "PO-{{$timestamp}}",
+  "request_id": "{{$guid}}",
+  "metadata": {
+    "supplier": "ACME Corp",
+    "warehouse": "WH-001"
+  }
+}
+
+###
+
+### 15. Update Stock - Adjustment
+# Adjust stock for inventory correction
+PUT {{baseUrl}}{{apiVersion}}/inventory/stock
+Content-Type: application/json
+X-Request-ID: req-update-adjustment-{{$guid}}
+
+{
+  "product_id": "{{productId}}",
+  "new_stock": -5,
+  "adjustment_type": "adjustment",
+  "reason": "Inventory audit correction",
+  "reference": "ADJ-{{$timestamp}}",
+  "request_id": "{{$guid}}",
+  "metadata": {
+    "auditor": "John Doe",
+    "audit_date": "2025-10-06"
+  }
+}
+
+###
+
+### 16. Update Stock - Return
+# Add stock from customer return
+PUT {{baseUrl}}{{apiVersion}}/inventory/stock
+Content-Type: application/json
+X-Request-ID: req-update-return-{{$guid}}
+
+{
+  "product_id": "{{productId}}",
+  "new_stock": 3,
+  "adjustment_type": "return",
+  "reason": "Customer return processed",
+  "reference": "RET-{{$timestamp}}",
+  "request_id": "{{$guid}}",
+  "metadata": {
+    "return_reason": "Changed mind",
+    "condition": "new"
+  }
+}
+
+###
+
+### 17. Update Stock - Correction
+# Manual stock correction
+PUT {{baseUrl}}{{apiVersion}}/inventory/stock
+Content-Type: application/json
+X-Request-ID: req-update-correction-{{$guid}}
+
+{
+  "product_id": "{{productId}}",
+  "new_stock": 10,
+  "adjustment_type": "correction",
+  "reason": "Physical count mismatch",
+  "reference": "CORR-{{$timestamp}}",
+  "request_id": "{{$guid}}",
+  "metadata": {
+    "previous_count": 8,
+    "actual_count": 10,
+    "corrected_by": "Admin"
+  }
+}
+
+###############################################################################
+# ERROR HANDLING TESTS
+###############################################################################
+
+### 18. Invalid Product ID Format
+GET {{baseUrl}}{{apiVersion}}/inventory/stock/invalid-format-!!!
+Content-Type: application/json
+X-Request-ID: req-error-format-{{$guid}}
+
+###
+
+### 19. Missing Required Fields
+POST {{baseUrl}}{{apiVersion}}/inventory/reserve
+Content-Type: application/json
+X-Request-ID: req-error-missing-{{$guid}}
+
+{
+  "product_id": "{{productId}}"
+}
+
+###
+
+### 20. Invalid JSON
+POST {{baseUrl}}{{apiVersion}}/inventory/reserve
+Content-Type: application/json
+X-Request-ID: req-error-json-{{$guid}}
+
+{
+  "product_id": "{{productId}}",
+  "quantity": "not-a-number"
+}
+
+###############################################################################
+# WORKFLOW EXAMPLES
+###############################################################################
+
+### WORKFLOW 1: Complete Order Flow
+# Step 1: Reserve Stock
+POST {{baseUrl}}{{apiVersion}}/inventory/reserve
+Content-Type: application/json
+X-Request-ID: workflow-1-reserve
+
+{
+  "product_id": "prod-001",
+  "quantity": 2,
+  "request_id": "workflow-order-{{$timestamp}}",
+  "timeout_seconds": 600,
+  "reason": "Customer checkout",
+  "metadata": {
+    "order_id": "ORD-WORKFLOW-001",
+    "customer_id": "CUST-999"
+  }
+}
+
+# Step 2: Get Stock (verify reservation)
+# GET {{baseUrl}}{{apiVersion}}/inventory/stock/prod-001
+
+# Step 3: Complete Order (release as purchased)
+# POST {{baseUrl}}{{apiVersion}}/inventory/release
+# {
+#   "reservation_id": "USE_ID_FROM_STEP_1",
+#   "reason": "purchased",
+#   "request_id": "workflow-purchase-{{$timestamp}}"
+# }
+
+###
+
+### WORKFLOW 2: Abandoned Cart Flow
+# Step 1: Reserve Stock for Cart
+POST {{baseUrl}}{{apiVersion}}/inventory/reserve
+Content-Type: application/json
+X-Request-ID: workflow-2-reserve
+
+{
+  "product_id": "prod-002",
+  "quantity": 1,
+  "request_id": "workflow-cart-{{$timestamp}}",
+  "timeout_seconds": 900,
+  "reason": "Shopping cart",
+  "metadata": {
+    "cart_id": "CART-WORKFLOW-002",
+    "session_id": "SESSION-{{$timestamp}}"
+  }
+}
+
+# Step 2: Customer Abandons Cart (release)
+# POST {{baseUrl}}{{apiVersion}}/inventory/release
+# {
+#   "reservation_id": "USE_ID_FROM_STEP_1",
+#   "reason": "cancelled",
+#   "request_id": "workflow-abandon-{{$timestamp}}"
+# }
+
+###
+
+### WORKFLOW 3: Restock and Sell Flow
+# Step 1: Add New Inventory
+PUT {{baseUrl}}{{apiVersion}}/inventory/stock
+Content-Type: application/json
+X-Request-ID: workflow-3-restock
+
+{
+  "product_id": "prod-003",
+  "new_stock": 100,
+  "adjustment_type": "restock",
+  "reason": "Monthly shipment",
+  "reference": "PO-WORKFLOW-003",
+  "request_id": "workflow-restock-{{$timestamp}}"
+}
+
+# Step 2: Check Updated Stock
+# GET {{baseUrl}}{{apiVersion}}/inventory/stock/prod-003
+
+# Step 3: Reserve Some Stock
+# POST {{baseUrl}}{{apiVersion}}/inventory/reserve
+# {
+#   "product_id": "prod-003",
+#   "quantity": 5,
+#   "request_id": "workflow-sell-{{$timestamp}}",
+#   "timeout_seconds": 300,
+#   "reason": "New order"
+# }
+
+###############################################################################
+# NOTES
+###############################################################################
+
+# VSCode REST Client Features:
+# - Click "Send Request" above each ### separator
+# - Use {{$guid}} for unique IDs
+# - Use {{$timestamp}} for timestamps
+# - Use {{$randomInt}} for random integers
+# - Variables defined with @variable = value
+# - Environment-specific variables supported
+
+# Available Reasons for Release:
+# - cancelled: Customer cancelled order
+# - purchased: Order completed successfully
+# - timeout: Reservation expired
+# - expired: System expired reservation
+# - admin: Manual admin release
+
+# Available Adjustment Types for Stock Update:
+# - restock: Adding new inventory
+# - adjustment: Inventory correction
+# - return: Customer return
+# - correction: Manual correction
+
+###############################################################################

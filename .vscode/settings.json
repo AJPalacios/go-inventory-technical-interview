@@ -1,0 +1,50 @@
+{
+  // REST Client Configuration
+  "rest-client.environmentVariables": {
+    "$shared": {
+      "baseUrl": "http://localhost:8080",
+      "apiVersion": "/api/v1"
+    },
+    "local": {
+      "baseUrl": "http://localhost:8080"
+    }
+  },
+  "rest-client.defaultHeaders": {
+    "User-Agent": "VSCode-REST-Client",
+    "Accept": "application/json"
+  },
+  "rest-client.timeoutinmilliseconds": 30000,
+  "rest-client.followredirect": true,
+  "rest-client.enableTelemetry": false,
+  // Go Configuration
+  "go.useLanguageServer": true,
+  "go.lintTool": "golangci-lint",
+  "go.lintOnSave": "package",
+  "go.formatTool": "goimports",
+  "go.testFlags": [
+    "-v",
+    "-race"
+  ],
+  "go.coverOnSave": false,
+  "go.toolsManagement.autoUpdate": true,
+  // Editor Configuration
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.organizeImports": "explicit"
+  },
+  "files.associations": {
+    "*.http": "http",
+    "*.rest": "http"
+  },
+  // File Exclusions
+  "files.exclude": {
+    "**/.git": true,
+    "**/.DS_Store": true,
+    "**/bin": true,
+    "**/*.db": false
+  },
+  // Terminal Configuration
+  "terminal.integrated.defaultProfile.osx": "zsh",
+  // Git Configuration
+  "git.ignoreLimitWarning": true
+}

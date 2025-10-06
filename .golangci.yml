@@ -1,0 +1,50 @@
+# golangci-lint configuration for inventory project
+run:
+  timeout: 5m
+  tests: true
+  skip-dirs:
+    - bin
+    - vendor
+  skip-files:
+    - ".*\\.pb\\.go$"
+    - ".*_test\\.go$"
+
+linters-settings:
+  gofmt:
+    simplify: true
+  goimports:
+    local-prefixes: github.com/AJPalacios/inventory
+  golint:
+    min-confidence: 0.8
+  govet:
+    check-shadowing: true
+  misspell:
+    locale: US
+  unused:
+    check-exported: false
+
+linters:
+  enable:
+    - gofmt
+    - goimports
+    - govet
+    - golint
+    - ineffassign
+    - misspell
+    - unused
+    - deadcode
+    - varcheck
+    - structcheck
+    - errcheck
+  disable:
+    - typecheck # Disabled due to false positives with generics
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - golint
+        - unused
+        - deadcode
+  max-issues-per-linter: 0
+  max-same-issues: 0

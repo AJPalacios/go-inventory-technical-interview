@@ -56,7 +56,7 @@ func DefaultDeadlockPreventionStrategy() DeadlockPreventionStrategy {
 func (r *inventoryRepository) WithTransactionIsolation(ctx context.Context, level TransactionIsolationLevel, fn func(repo InventoryRepository) error) error {
 	// Set transaction isolation level based on operation criticality
 	txOptions := &sql.TxOptions{}
-	
+
 	switch level {
 	case ReadCommitted:
 		txOptions.Isolation = sql.LevelReadCommitted
@@ -104,7 +104,7 @@ func (r *inventoryRepository) WithTransactionIsolation(ctx context.Context, leve
 func (r *inventoryRepository) AtomicReserveAndCreateReservation(ctx context.Context, req ReserveStockRequest, reservationReq CreateReservationRequest) (*InventoryItem, *Reservation, error) {
 	var inventory *InventoryItem
 	var reservation *Reservation
-	
+
 	// Use READ COMMITTED for this operation - we have optimistic locking
 	err := r.WithTransactionIsolation(ctx, ReadCommitted, func(txRepo InventoryRepository) error {
 		// Step 1: Reserve stock (atomic with version check)
@@ -113,21 +113,21 @@ func (r *inventoryRepository) AtomicReserveAndCreateReservation(ctx context.Cont
 			return fmt.Errorf("failed to reserve stock: %w", err)
 		}
 		inventory = inv
-		
+
 		// Step 2: Create reservation record (atomic)
 		res, err := txRepo.CreateReservation(ctx, reservationReq)
 		if err != nil {
 			return fmt.Errorf("failed to create reservation: %w", err)
 		}
 		reservation = res
-		
+
 		return nil
 	})
-	
+
 	if err != nil {
 		return nil, nil, err
 	}
-	
+
 	return inventory, reservation, nil
 }
 
@@ -135,7 +135,7 @@ func (r *inventoryRepository) AtomicReserveAndCreateReservation(ctx context.Cont
 func (r *inventoryRepository) AtomicReleaseAndUpdateReservation(ctx context.Context, releaseReq ReleaseStockRequest, reservationID, newStatus string) (*InventoryItem, *Reservation, error) {
 	var inventory *InventoryItem
 	var reservation *Reservation
-	
+
 	err := r.WithTransactionIsolation(ctx, ReadCommitted, func(txRepo InventoryRepository) error {
 		// Step 1: Release stock
 		inv, err := txRepo.ReleaseStock(ctx, releaseReq)
@@ -143,30 +143,30 @@ func (r *inventoryRepository) AtomicReleaseAndUpdateReservation(ctx context.Cont
 			return fmt.Errorf("failed to release stock: %w", err)
 		}
 		inventory = inv
-		
+
 		// Step 2: Update reservation status
 		res, err := txRepo.UpdateReservationStatus(ctx, reservationID, newStatus)
 		if err != nil {
 			return fmt.Errorf("failed to update reservation: %w", err)
 		}
 		reservation = res
-		
+
 		return nil
 	})
-	
+
 	if err != nil {
 		return nil, nil, err
 	}
-	
+
 	return inventory, reservation, nil
 }
 
 // DeadlockAnalysis provides analysis of potential deadlock scenarios
 type DeadlockAnalysis struct {
-	Scenario    string
-	Risk        string // LOW, MEDIUM, HIGH
-	Mitigation  string
-	Prevention  []string
+	Scenario   string
+	Risk       string // LOW, MEDIUM, HIGH
+	Mitigation string
+	Prevention []string
 }
 
 // GetDeadlockAnalysis returns analysis of potential deadlock scenarios
@@ -174,7 +174,7 @@ func GetDeadlockAnalysis() []DeadlockAnalysis {
 	return []DeadlockAnalysis{
 		{
 			Scenario:   "Concurrent Reserve Operations on Same Product",
-			Risk:       "LOW", 
+			Risk:       "LOW",
 			Mitigation: "Optimistic locking prevents lock contention",
 			Prevention: []string{
 				"Version-based optimistic locking",
@@ -217,34 +217,34 @@ func GetDeadlockAnalysis() []DeadlockAnalysis {
 
 // ACIDCompliance represents our ACID compliance analysis
 type ACIDCompliance struct {
-	Property    string
-	Compliance  string // FULL, PARTIAL, NONE
+	Property       string
+	Compliance     string // FULL, PARTIAL, NONE
 	Implementation string
-	Risks       []string
-	Mitigations []string
+	Risks          []string
+	Mitigations    []string
 }
 
 // GetACIDCompliance returns detailed ACID compliance analysis
 func GetACIDCompliance() []ACIDCompliance {
 	return []ACIDCompliance{
 		{
-			Property:   "Atomicity",
-			Compliance: "FULL",
+			Property:       "Atomicity",
+			Compliance:     "FULL",
 			Implementation: "Database transactions + optimistic locking",
 			Risks: []string{
 				"Network failures during commit",
 				"Application crashes during transaction",
 			},
 			Mitigations: []string{
-				"Proper transaction boundaries", 
+				"Proper transaction boundaries",
 				"Panic recovery with rollback",
 				"Context timeouts",
 				"Idempotency keys for retry safety",
 			},
 		},
 		{
-			Property:   "Consistency",
-			Compliance: "FULL",
+			Property:       "Consistency",
+			Compliance:     "FULL",
 			Implementation: "Business rules + DB constraints + validation",
 			Risks: []string{
 				"Race conditions in concurrent updates",
@@ -258,8 +258,8 @@ func GetACIDCompliance() []ACIDCompliance {
 			},
 		},
 		{
-			Property:   "Isolation",
-			Compliance: "FULL",
+			Property:       "Isolation",
+			Compliance:     "FULL",
 			Implementation: "Optimistic locking + configurable isolation levels",
 			Risks: []string{
 				"Phantom reads in range queries",
@@ -273,8 +273,8 @@ func GetACIDCompliance() []ACIDCompliance {
 			},
 		},
 		{
-			Property:   "Durability",
-			Compliance: "FULL",
+			Property:       "Durability",
+			Compliance:     "FULL",
 			Implementation: "Database persistence + WAL + fsync",
 			Risks: []string{
 				"Hardware failures",
@@ -301,14 +301,14 @@ func (r *inventoryRepository) ValidateACIDCompliance(ctx context.Context) error 
 	if err == nil {
 		return fmt.Errorf("atomicity test failed: transaction should have rolled back")
 	}
-	
+
 	// Test consistency by verifying constraints
 	// (This would be expanded with actual business rule checks)
-	
+
 	// Test isolation by checking version conflicts work
 	// (This would be expanded with concurrent operation tests)
-	
+
 	// Durability is guaranteed by the database layer
-	
+
 	return nil
 }
