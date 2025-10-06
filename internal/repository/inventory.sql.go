@@ -3,7 +3,7 @@
 //   sqlc v1.30.0
 // source: inventory.sql
 
-package db
+package repository
 
 import (
 	"context"
@@ -16,6 +16,7 @@ DELETE FROM idempotency_keys
 WHERE expires_at < CURRENT_TIMESTAMP
 `
 
+// Cleanup expired idempotency keys
 func (q *Queries) CleanupExpiredIdempotencyKeys(ctx context.Context) error {
 	_, err := q.db.ExecContext(ctx, cleanupExpiredIdempotencyKeys)
 	return err
@@ -178,6 +179,104 @@ func (q *Queries) CreateReservation(ctx context.Context, arg CreateReservationPa
 	return i, err
 }
 
+const createReservationWithTimeout = `-- name: CreateReservationWithTimeout :one
+INSERT INTO reservations (id, product_id, quantity, request_id, status, expires_at, created_at)
+VALUES (?1, ?2, ?3, ?4, 'active', ?5, CURRENT_TIMESTAMP)
+RETURNING id, request_id, product_id, quantity, status, created_at, updated_at, expires_at
+`
+
+type CreateReservationWithTimeoutParams struct {
+	ID        string       `json:"id"`
+	ProductID string       `json:"product_id"`
+	Quantity  int64        `json:"quantity"`
+	RequestID string       `json:"request_id"`
+	ExpiresAt sql.NullTime `json:"expires_at"`
+}
+
+// Create reservation with timeout and validation
+func (q *Queries) CreateReservationWithTimeout(ctx context.Context, arg CreateReservationWithTimeoutParams) (Reservation, error) {
+	row := q.db.QueryRowContext(ctx, createReservationWithTimeout,
+		arg.ID,
+		arg.ProductID,
+		arg.Quantity,
+		arg.RequestID,
+		arg.ExpiresAt,
+	)
+	var i Reservation
+	err := row.Scan(
+		&i.ID,
+		&i.RequestID,
+		&i.ProductID,
+		&i.Quantity,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ExpiresAt,
+	)
+	return i, err
+}
+
+const deleteExpiredIdempotencyKeys = `-- name: DeleteExpiredIdempotencyKeys :exec
+DELETE FROM idempotency_keys
+WHERE expires_at < CURRENT_TIMESTAMP
+`
+
+func (q *Queries) DeleteExpiredIdempotencyKeys(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, deleteExpiredIdempotencyKeys)
+	return err
+}
+
+const getExpiredReservations = `-- name: GetExpiredReservations :many
+
+SELECT id, product_id, quantity, request_id, expires_at, created_at
+FROM reservations
+WHERE status = 'active' 
+AND expires_at < CURRENT_TIMESTAMP
+ORDER BY expires_at ASC
+LIMIT ?1
+`
+
+type GetExpiredReservationsRow struct {
+	ID        string       `json:"id"`
+	ProductID string       `json:"product_id"`
+	Quantity  int64        `json:"quantity"`
+	RequestID string       `json:"request_id"`
+	ExpiresAt sql.NullTime `json:"expires_at"`
+	CreatedAt time.Time    `json:"created_at"`
+}
+
+// Update reservation status with optimistic approach\n-- name: UpdateReservationStatus :one\nUPDATE reservations\nSET \n    status = ?1,\n    updated_at = CURRENT_TIMESTAMP\nWHERE id = ?2 AND status = 'active'  -- Only update active reservations\nRETURNING *;
+// Get active reservations for cleanup
+func (q *Queries) GetExpiredReservations(ctx context.Context, limit int64) ([]GetExpiredReservationsRow, error) {
+	rows, err := q.db.QueryContext(ctx, getExpiredReservations, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetExpiredReservationsRow{}
+	for rows.Next() {
+		var i GetExpiredReservationsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProductID,
+			&i.Quantity,
+			&i.RequestID,
+			&i.ExpiresAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getIdempotencyKey = `-- name: GetIdempotencyKey :one
 SELECT request_id, operation_type, response_data, created_at, expires_at FROM idempotency_keys
 WHERE request_id = ? LIMIT 1
@@ -192,6 +291,29 @@ func (q *Queries) GetIdempotencyKey(ctx context.Context, requestID string) (Idem
 		&i.ResponseData,
 		&i.CreatedAt,
 		&i.ExpiresAt,
+	)
+	return i, err
+}
+
+const getInventoryForUpdate = `-- name: GetInventoryForUpdate :one
+SELECT id, product_id, available_stock, reserved_stock, version, created_at, updated_at
+FROM inventory_items
+WHERE product_id = ?1
+LIMIT 1
+`
+
+// Get inventory with version for optimistic locking
+func (q *Queries) GetInventoryForUpdate(ctx context.Context, productID string) (InventoryItem, error) {
+	row := q.db.QueryRowContext(ctx, getInventoryForUpdate, productID)
+	var i InventoryItem
+	err := row.Scan(
+		&i.ID,
+		&i.ProductID,
+		&i.AvailableStock,
+		&i.ReservedStock,
+		&i.Version,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -415,6 +537,28 @@ func (q *Queries) GetReservationsByProduct(ctx context.Context, productID string
 	return items, nil
 }
 
+const getValidIdempotencyKey = `-- name: GetValidIdempotencyKey :one
+SELECT request_id, operation_type, response_data, created_at, expires_at
+FROM idempotency_keys
+WHERE request_id = ?1 
+AND expires_at > CURRENT_TIMESTAMP
+LIMIT 1
+`
+
+// Get idempotency key if not expired
+func (q *Queries) GetValidIdempotencyKey(ctx context.Context, requestID string) (IdempotencyKey, error) {
+	row := q.db.QueryRowContext(ctx, getValidIdempotencyKey, requestID)
+	var i IdempotencyKey
+	err := row.Scan(
+		&i.RequestID,
+		&i.OperationType,
+		&i.ResponseData,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+	)
+	return i, err
+}
+
 const listActiveReservations = `-- name: ListActiveReservations :many
 SELECT id, request_id, product_id, quantity, status, created_at, updated_at, expires_at FROM reservations
 WHERE status = 'active'
@@ -525,6 +669,21 @@ func (q *Queries) ListProducts(ctx context.Context) ([]Product, error) {
 	return items, nil
 }
 
+const markReservationsExpired = `-- name: MarkReservationsExpired :exec
+UPDATE reservations
+SET 
+    status = 'expired',
+    updated_at = CURRENT_TIMESTAMP
+WHERE status = 'active' 
+AND expires_at < CURRENT_TIMESTAMP
+`
+
+// Batch release expired reservations
+func (q *Queries) MarkReservationsExpired(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, markReservationsExpired)
+	return err
+}
+
 const releaseReservedStock = `-- name: ReleaseReservedStock :one
 UPDATE inventory_items 
 SET 
@@ -553,6 +712,83 @@ func (q *Queries) ReleaseReservedStock(ctx context.Context, arg ReleaseReservedS
 		arg.ProductID,
 		arg.ReservedStock_2,
 	)
+	var i InventoryItem
+	err := row.Scan(
+		&i.ID,
+		&i.ProductID,
+		&i.AvailableStock,
+		&i.ReservedStock,
+		&i.Version,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const releaseStockOptimistic = `-- name: ReleaseStockOptimistic :one
+UPDATE inventory_items 
+SET 
+    available_stock = available_stock + ?1,
+    reserved_stock = reserved_stock - ?1,
+    version = version + 1,
+    updated_at = CURRENT_TIMESTAMP
+WHERE 
+    product_id = ?2 
+    AND version = ?3
+    AND reserved_stock >= ?1  -- Ensure sufficient reserved stock
+RETURNING id, product_id, available_stock, reserved_stock, version, created_at, updated_at
+`
+
+type ReleaseStockOptimisticParams struct {
+	AvailableStock int64  `json:"available_stock"`
+	ProductID      string `json:"product_id"`
+	Version        int64  `json:"version"`
+}
+
+// Critical: Optimistic stock release with validation
+func (q *Queries) ReleaseStockOptimistic(ctx context.Context, arg ReleaseStockOptimisticParams) (InventoryItem, error) {
+	row := q.db.QueryRowContext(ctx, releaseStockOptimistic, arg.AvailableStock, arg.ProductID, arg.Version)
+	var i InventoryItem
+	err := row.Scan(
+		&i.ID,
+		&i.ProductID,
+		&i.AvailableStock,
+		&i.ReservedStock,
+		&i.Version,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const reserveStockOptimistic = `-- name: ReserveStockOptimistic :one
+
+UPDATE inventory_items 
+SET 
+    available_stock = available_stock - ?1,
+    reserved_stock = reserved_stock + ?1,
+    version = version + 1,
+    updated_at = CURRENT_TIMESTAMP
+WHERE 
+    product_id = ?2 
+    AND version = ?3
+    AND (available_stock - ?1) >= 0  -- Prevent negative available stock
+    AND (available_stock >= ?1)      -- Ensure sufficient stock
+RETURNING id, product_id, available_stock, reserved_stock, version, created_at, updated_at
+`
+
+type ReserveStockOptimisticParams struct {
+	AvailableStock int64  `json:"available_stock"`
+	ProductID      string `json:"product_id"`
+	Version        int64  `json:"version"`
+}
+
+// =====================================================
+// ENHANCED OPTIMISTIC LOCKING QUERIES
+// =====================================================
+// Critical: Optimistic stock reservation with comprehensive validation
+func (q *Queries) ReserveStockOptimistic(ctx context.Context, arg ReserveStockOptimisticParams) (InventoryItem, error) {
+	row := q.db.QueryRowContext(ctx, reserveStockOptimistic, arg.AvailableStock, arg.ProductID, arg.Version)
 	var i InventoryItem
 	err := row.Scan(
 		&i.ID,
@@ -610,6 +846,45 @@ func (q *Queries) ReserveStockWithVersion(ctx context.Context, arg ReserveStockW
 	return i, err
 }
 
+const storeIdempotencyKey = `-- name: StoreIdempotencyKey :one
+
+INSERT INTO idempotency_keys (request_id, operation_type, response_data, expires_at, created_at)
+VALUES (?1, ?2, ?3, ?4, CURRENT_TIMESTAMP)
+ON CONFLICT(request_id) DO UPDATE SET
+    response_data = excluded.response_data,
+    expires_at = excluded.expires_at
+RETURNING request_id, operation_type, response_data, created_at, expires_at
+`
+
+type StoreIdempotencyKeyParams struct {
+	RequestID     string         `json:"request_id"`
+	OperationType string         `json:"operation_type"`
+	ResponseData  sql.NullString `json:"response_data"`
+	ExpiresAt     time.Time      `json:"expires_at"`
+}
+
+// =====================================================
+// IDEMPOTENCY QUERIES
+// =====================================================
+// Store idempotency key with response
+func (q *Queries) StoreIdempotencyKey(ctx context.Context, arg StoreIdempotencyKeyParams) (IdempotencyKey, error) {
+	row := q.db.QueryRowContext(ctx, storeIdempotencyKey,
+		arg.RequestID,
+		arg.OperationType,
+		arg.ResponseData,
+		arg.ExpiresAt,
+	)
+	var i IdempotencyKey
+	err := row.Scan(
+		&i.RequestID,
+		&i.OperationType,
+		&i.ResponseData,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+	)
+	return i, err
+}
+
 const updateAvailableStockWithVersion = `-- name: UpdateAvailableStockWithVersion :one
 UPDATE inventory_items 
 SET 
@@ -644,7 +919,7 @@ func (q *Queries) UpdateAvailableStockWithVersion(ctx context.Context, arg Updat
 	return i, err
 }
 
-const updateReservationStatus = `-- name: UpdateReservationStatus :one
+const updateReservationStatusById = `-- name: UpdateReservationStatusById :one
 UPDATE reservations
 SET 
     status = ?,
@@ -653,13 +928,13 @@ WHERE id = ?
 RETURNING id, request_id, product_id, quantity, status, created_at, updated_at, expires_at
 `
 
-type UpdateReservationStatusParams struct {
+type UpdateReservationStatusByIdParams struct {
 	Status string `json:"status"`
 	ID     string `json:"id"`
 }
 
-func (q *Queries) UpdateReservationStatus(ctx context.Context, arg UpdateReservationStatusParams) (Reservation, error) {
-	row := q.db.QueryRowContext(ctx, updateReservationStatus, arg.Status, arg.ID)
+func (q *Queries) UpdateReservationStatusById(ctx context.Context, arg UpdateReservationStatusByIdParams) (Reservation, error) {
+	row := q.db.QueryRowContext(ctx, updateReservationStatusById, arg.Status, arg.ID)
 	var i Reservation
 	err := row.Scan(
 		&i.ID,
@@ -670,6 +945,41 @@ func (q *Queries) UpdateReservationStatus(ctx context.Context, arg UpdateReserva
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ExpiresAt,
+	)
+	return i, err
+}
+
+const updateStockOptimistic = `-- name: UpdateStockOptimistic :one
+UPDATE inventory_items 
+SET 
+    available_stock = ?1 - reserved_stock,  -- New available = total - reserved
+    version = version + 1,
+    updated_at = CURRENT_TIMESTAMP
+WHERE 
+    product_id = ?2 
+    AND version = ?3
+    AND ?1 >= reserved_stock  -- Ensure new total >= reserved
+RETURNING id, product_id, available_stock, reserved_stock, version, created_at, updated_at
+`
+
+type UpdateStockOptimisticParams struct {
+	ReservedStock int64  `json:"reserved_stock"`
+	ProductID     string `json:"product_id"`
+	Version       int64  `json:"version"`
+}
+
+// Critical: Update total stock with version check
+func (q *Queries) UpdateStockOptimistic(ctx context.Context, arg UpdateStockOptimisticParams) (InventoryItem, error) {
+	row := q.db.QueryRowContext(ctx, updateStockOptimistic, arg.ReservedStock, arg.ProductID, arg.Version)
+	var i InventoryItem
+	err := row.Scan(
+		&i.ID,
+		&i.ProductID,
+		&i.AvailableStock,
+		&i.ReservedStock,
+		&i.Version,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }

@@ -7,11 +7,6 @@ bin/
 *.db-shm
 *.db-wal
 
-# SQLC generated (se regenera con sqlc generate)
-internal/repository/db.go
-internal/repository/models.go
-internal/repository/querier.go
-
 # Environment
 .env
 .env.local

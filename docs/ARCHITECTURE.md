@@ -1,4 +1,6 @@
-# Arquitectura Distribuida - Sistema de Inventario
+# 🏗️ ACID Compliance & Architecture Analysis
+
+**Deep Technical Analysis of ACID Properties Implementation**
 
 ## PROBLEMA A RESOLVER
 - ❌ **Inconsistencias de stock** entre usuarios concurrentes

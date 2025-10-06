@@ -91,7 +91,7 @@ WHERE id = ? LIMIT 1;
 SELECT * FROM reservations
 WHERE request_id = ? LIMIT 1;
 
--- name: UpdateReservationStatus :one
+-- name: UpdateReservationStatusById :one
 UPDATE reservations
 SET 
     status = ?,
@@ -124,7 +124,7 @@ RETURNING *;
 SELECT * FROM idempotency_keys
 WHERE request_id = ? LIMIT 1;
 
--- name: CleanupExpiredIdempotencyKeys :exec
+-- name: DeleteExpiredIdempotencyKeys :exec
 DELETE FROM idempotency_keys
 WHERE expires_at < CURRENT_TIMESTAMP;
 
@@ -155,3 +155,108 @@ COMMIT;
 
 -- name: RollbackTransaction :exec
 ROLLBACK;
+
+-- =====================================================
+-- ENHANCED OPTIMISTIC LOCKING QUERIES
+-- =====================================================
+
+-- Critical: Optimistic stock reservation with comprehensive validation
+-- name: ReserveStockOptimistic :one
+UPDATE inventory_items 
+SET 
+    available_stock = available_stock - ?1,
+    reserved_stock = reserved_stock + ?1,
+    version = version + 1,
+    updated_at = CURRENT_TIMESTAMP
+WHERE 
+    product_id = ?2 
+    AND version = ?3
+    AND (available_stock - ?1) >= 0  -- Prevent negative available stock
+    AND (available_stock >= ?1)      -- Ensure sufficient stock
+RETURNING *;
+
+-- Critical: Optimistic stock release with validation
+-- name: ReleaseStockOptimistic :one
+UPDATE inventory_items 
+SET 
+    available_stock = available_stock + ?1,
+    reserved_stock = reserved_stock - ?1,
+    version = version + 1,
+    updated_at = CURRENT_TIMESTAMP
+WHERE 
+    product_id = ?2 
+    AND version = ?3
+    AND reserved_stock >= ?1  -- Ensure sufficient reserved stock
+RETURNING *;
+
+-- Critical: Update total stock with version check
+-- name: UpdateStockOptimistic :one
+UPDATE inventory_items 
+SET 
+    available_stock = ?1 - reserved_stock,  -- New available = total - reserved
+    version = version + 1,
+    updated_at = CURRENT_TIMESTAMP
+WHERE 
+    product_id = ?2 
+    AND version = ?3
+    AND ?1 >= reserved_stock  -- Ensure new total >= reserved
+RETURNING *;
+
+-- Get inventory with version for optimistic locking
+-- name: GetInventoryForUpdate :one
+SELECT id, product_id, available_stock, reserved_stock, version, created_at, updated_at
+FROM inventory_items
+WHERE product_id = ?1
+LIMIT 1;
+
+-- Create reservation with timeout and validation
+-- name: CreateReservationWithTimeout :one
+INSERT INTO reservations (id, product_id, quantity, request_id, status, expires_at, created_at)
+VALUES (?1, ?2, ?3, ?4, 'active', ?5, CURRENT_TIMESTAMP)
+RETURNING *;
+
+-- Update reservation status with optimistic approach\n-- name: UpdateReservationStatus :one\nUPDATE reservations\nSET \n    status = ?1,\n    updated_at = CURRENT_TIMESTAMP\nWHERE id = ?2 AND status = 'active'  -- Only update active reservations\nRETURNING *;
+
+-- Get active reservations for cleanup
+-- name: GetExpiredReservations :many
+SELECT id, product_id, quantity, request_id, expires_at, created_at
+FROM reservations
+WHERE status = 'active' 
+AND expires_at < CURRENT_TIMESTAMP
+ORDER BY expires_at ASC
+LIMIT ?1;
+
+-- Batch release expired reservations
+-- name: MarkReservationsExpired :exec
+UPDATE reservations
+SET 
+    status = 'expired',
+    updated_at = CURRENT_TIMESTAMP
+WHERE status = 'active' 
+AND expires_at < CURRENT_TIMESTAMP;
+
+-- =====================================================
+-- IDEMPOTENCY QUERIES
+-- =====================================================
+
+-- Store idempotency key with response
+-- name: StoreIdempotencyKey :one
+INSERT INTO idempotency_keys (request_id, operation_type, response_data, expires_at, created_at)
+VALUES (?1, ?2, ?3, ?4, CURRENT_TIMESTAMP)
+ON CONFLICT(request_id) DO UPDATE SET
+    response_data = excluded.response_data,
+    expires_at = excluded.expires_at
+RETURNING *;
+
+-- Get idempotency key if not expired
+-- name: GetValidIdempotencyKey :one
+SELECT request_id, operation_type, response_data, created_at, expires_at
+FROM idempotency_keys
+WHERE request_id = ?1 
+AND expires_at > CURRENT_TIMESTAMP
+LIMIT 1;
+
+-- Cleanup expired idempotency keys
+-- name: CleanupExpiredIdempotencyKeys :exec
+DELETE FROM idempotency_keys
+WHERE expires_at < CURRENT_TIMESTAMP;
