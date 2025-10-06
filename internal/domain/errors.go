@@ -83,6 +83,16 @@ func IsDuplicateRequestError(err error) bool {
 	return ok
 }
 
+func IsProductNotFoundError(err error) bool {
+	_, ok := err.(ErrProductNotFound)
+	return ok
+}
+
+func IsReservationNotFoundError(err error) bool {
+	_, ok := err.(ErrReservationNotFound)
+	return ok
+}
+
 // ErrProductNotFound represents a product that doesn't exist.
 type ErrProductNotFound struct {
 	ProductID string

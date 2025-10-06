@@ -41,7 +41,7 @@ func NewInventoryHandler(
 type ReserveStockRequest struct {
 	ProductID      string            `json:"product_id" binding:"required,uuid"`
 	Quantity       int32             `json:"quantity" binding:"required,min=1,max=100000"`
-	TimeoutSeconds int32             `json:"timeout_seconds,omitempty" binding:"omitempty,min=60,max=86400"`
+	TimeoutSeconds int32             `json:"timeout_seconds,omitempty" binding:"omitempty,min=60,max=3600"`
 	Reason         string            `json:"reason,omitempty" binding:"omitempty,max=500"`
 	Metadata       map[string]string `json:"metadata,omitempty"`
 	ClientID       string            `json:"client_id,omitempty" binding:"omitempty,min=1,max=100"`
@@ -57,7 +57,7 @@ type ReleaseStockRequest struct {
 type UpdateStockRequest struct {
 	ProductID      string            `json:"product_id" binding:"required,uuid"`
 	NewStock       int32             `json:"new_stock" binding:"required,min=0,max=100000"`
-	AdjustmentType string            `json:"adjustment_type" binding:"required,oneof=SET INCREMENT DECREMENT"`
+	AdjustmentType string            `json:"adjustment_type" binding:"required,oneof=restock adjustment return correction"`
 	Reason         string            `json:"reason" binding:"required,min=3,max=500"`
 	Reference      string            `json:"reference,omitempty" binding:"omitempty,max=100"`
 	Metadata       map[string]string `json:"metadata,omitempty"`
@@ -452,6 +452,10 @@ func (h *InventoryHandler) formatValidationError(err validator.FieldError) strin
 func (h *InventoryHandler) handleServiceError(c *gin.Context, err error) {
 	// Map domain errors to HTTP status codes
 	switch {
+	case domain.IsProductNotFoundError(err):
+		h.handleError(c, http.StatusNotFound, "PRODUCT_NOT_FOUND", "Product not found", err.Error())
+	case domain.IsReservationNotFoundError(err):
+		h.handleError(c, http.StatusNotFound, "RESERVATION_NOT_FOUND", "Reservation not found", err.Error())
 	case domain.IsInsufficientStockError(err):
 		h.handleError(c, http.StatusConflict, "INSUFFICIENT_STOCK", "Insufficient stock available", err.Error())
 	case domain.IsReservationExpiredError(err):
