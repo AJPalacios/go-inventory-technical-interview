@@ -25,6 +25,10 @@ domain/            # Models & errors
 - Context para timeouts
 - Error wrapping con contexto
 - Structured logging
+- Configuración con Viper
+- Environment variables para settings
+- Patrones de diseño
+- SOLID principles
 
 **Concurrency:**
 - Thread-safe operations
@@ -35,24 +39,3 @@ domain/            # Models & errors
 - Table-driven tests
 - In-memory SQLite para integration
 - Coverage >70%
-
-**SQLC específico:**
-```yaml
-# sqlc.yaml
-version: "2"
-sql:
-  - engine: "sqlite"
-    queries: "queries/"
-    schema: "migrations/"
-    gen:
-      go:
-        package: "repository"
-        out: "internal/repository"
-        emit_interface: true
-
--- name: ReserveStock :execresult
-UPDATE inventory_items
-SET available_stock = available_stock - ?,
-    version = version + 1
-WHERE product_id = ? AND version = ?;
-```
