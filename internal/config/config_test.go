@@ -1,4 +1,4 @@
-package util
+package config
 
 import (
 	"fmt"
@@ -6,7 +6,7 @@ import (
 )
 
 func TestLoadConfig(t *testing.T) {
-	cfg, err := LoadConfig("..")
+	cfg, err := LoadConfig("../..")
 	if err != nil {
 		t.Fatalf("Failed to load config: %v", err)
 	}

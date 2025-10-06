@@ -82,7 +82,7 @@ func TestRetryBehaviorWithVersionConflict(t *testing.T) {
 
 	// Since retry logic is working, we get a max retries error
 	// But the underlying cause should be version conflict
-	assert.Contains(t, err.Error(), "maximum retries exceeded")
+	assert.Contains(t, err.Error(), "after")
 	assert.NotNil(t, repoErr.Context)
 	assert.Contains(t, repoErr.Context, "attempts")
 	assert.Contains(t, repoErr.Context, "last_error")

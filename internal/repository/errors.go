@@ -100,14 +100,22 @@ func NewInsufficientStockError(productID string, requested, available int64) *Re
 
 // NewMaxRetriesError creates an error for when max retries are exceeded
 func NewMaxRetriesError(op, entity, id string, attempts int, lastErr error) *RepositoryError {
+	// Wrap the last error so errors.Is() still works
+	wrappedErr := fmt.Errorf("%w: %s", ErrMaxRetriesExceeded, lastErr.Error())
+
 	// If the last error was a RepositoryError, preserve its context
 	var repoErr *RepositoryError
 	if errors.As(lastErr, &repoErr) {
+		// Keep the original error wrapped so IsVersionConflict still works
+		if errors.Is(lastErr, ErrVersionConflict) {
+			wrappedErr = fmt.Errorf("%w (after %d retries)", repoErr.Err, attempts)
+		}
+
 		return NewRepositoryErrorWithContext(
 			repoErr.Op,
 			repoErr.Entity,
 			repoErr.ID,
-			ErrMaxRetriesExceeded,
+			wrappedErr,
 			map[string]interface{}{
 				"attempts":        attempts,
 				"last_error":      lastErr.Error(),

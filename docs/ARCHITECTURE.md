@@ -16,15 +16,96 @@
 
 ---
 
-## 1. DIAGRAMA ASCII - 3 CAPAS ARQUITECTÓNICAS
+## 1. ESTRUCTURA DE DIRECTORIOS (Standard Go Project Layout)
+
+```
+inventory/
+├── cmd/
+│   └── server/                   # Aplicación principal
+│       └── main.go               # Entry point
+│
+├── internal/                     # Código privado de la aplicación
+│   ├── api/                      # HTTP Layer (handlers, server, middleware)
+│   │   ├── server.go             # Gin server setup
+│   │   ├── health.go             # Health check handler
+│   │   └── handlers/             # HTTP handlers
+│   │       ├── inventory.go      # Reserve, Release, GetStock
+│   │       └── middleware.go     # Logger, Recovery, Idempotency
+│   │
+│   ├── service/                  # Business Logic Layer
+│   │   ├── inventory.go          # InventoryService
+│   │   ├── reservation.go        # ReservationService
+│   │   └── idempotency.go        # IdempotencyService
+│   │
+│   ├── repository/               # Data Access Layer (SQLC generated)
+│   │   ├── db.go                 # Database connection
+│   │   ├── models.go             # SQLC generated models
+│   │   ├── querier.go            # SQLC generated interface
+│   │   ├── inventory.sql.go      # SQLC generated queries
+│   │   ├── repository.go         # Repository implementation
+│   │   └── retry.go              # Optimistic locking retry logic
+│   │
+│   ├── domain/                   # Business entities & types
+│   │   ├── inventory.go          # Inventory domain types
+│   │   ├── reservation.go        # Reservation domain types
+│   │   └── errors.go             # Domain errors
+│   │
+│   └── config/                   # Configuration & utilities
+│       ├── config.go             # Config loading (Viper)
+│       └── logger.go             # Logger setup (Zap)
+│
+├── pkg/                          # Public libraries (reutilizables)
+│   └── utils/                    # Utilidades generales
+│       ├── validator.go          # Validaciones comunes
+│       └── uuid.go               # UUID helpers
+│
+├── db/                           # Database files
+│   ├── migrations/               # golang-migrate files
+│   │   ├── 000001_init.up.sql
+│   │   └── 000001_init.down.sql
+│   └── query/                    # SQLC query definitions
+│       └── inventory.sql         # SQL queries for SQLC
+│
+├── docs/                         # Documentación
+│   └── ARCHITECTURE.md           # Este archivo
+│
+├── bin/                          # Compiled binaries
+├── go.mod                        # Go module definition
+├── go.sum                        # Go dependencies
+├── Makefile                      # Build & test automation
+├── sqlc.yaml                     # SQLC configuration
+└── README.md                     # Project documentation
+```
+
+### 📐 Principios de la Estructura
+
+**Separación por Capas (Layered Architecture):**
+- **`cmd/`**: Entry points de aplicaciones
+- **`internal/`**: Código privado organizado por capas (API → Service → Repository → Domain)
+- **`pkg/`**: Código reutilizable que podría ser público
+
+**Encapsulación:**
+- `internal/` previene importaciones externas
+- Cada capa depende solo de las inferiores
+- Domain no depende de nadie (entities puras)
+
+**Standard Go Project Layout:**
+- Sigue convenciones de la comunidad Go
+- Facilita mantenimiento y onboarding
+- Estructura escalable para microservicios
+
+---
+
+## 2. DIAGRAMA ASCII - 3 CAPAS ARQUITECTÓNICAS
 
 ```
 ┌───────────────────────────────────────────────────────────────────┐
-│                          🌐 API LAYER                             │
+│                    🌐 API LAYER (internal/api)                    │
 │  ┌─────────────────┐ ┌─────────────────┐ ┌────────────────────────┐│
 │  │   Gin Router    │ │   Middlewares   │ │      Handlers          ││
+│  │   (server.go)   │ │                 │ │  (handlers/)           ││
 │  │                 │ │                 │ │                        ││
-│  │ GET  /health    │ │ • Logger        │ │ • ReserveHandler       ││ 
+│  │ GET  /health    │ │ • Logger        │ │ • ReserveHandler       ││
 │  │ POST /reserve   │ │ • Recovery      │ │ • ReleaseHandler       ││
 │  │ POST /release   │ │ • CORS          │ │ • GetStockHandler      ││
 │  │ GET  /:id       │ │ • Idempotency   │ │ • UpdateStockHandler   ││
@@ -35,9 +116,10 @@
                                     │ HTTP/JSON
                                     ▼
 ┌───────────────────────────────────────────────────────────────────┐
-│                        🔧 SERVICE LAYER                           │
+│                  🔧 SERVICE LAYER (internal/service)              │
 │  ┌─────────────────┐ ┌─────────────────┐ ┌────────────────────────┐│
 │  │InventoryService │ │ReservationSvc   │ │   IdempotencyService   ││
+│  │  (inventory.go) │ │ (reservation.go)│ │   (idempotency.go)     ││
 │  │                 │ │                 │ │                        ││
 │  │ • GetStock()    │ │ • Reserve()     │ │ • CheckKey()           ││
 │  │ • UpdateStock() │ │ • Release()     │ │ • StoreResult()        ││
@@ -49,9 +131,10 @@
                                     │ Business Logic
                                     ▼
 ┌───────────────────────────────────────────────────────────────────┐
-│                      🗄️  REPOSITORY LAYER                         │
+│                🗄️  REPOSITORY LAYER (internal/repository)         │
 │  ┌─────────────────┐ ┌─────────────────┐ ┌────────────────────────┐│
 │  │  SQLC Queries   │ │  Transactions   │ │    Connection Pool     ││
+│  │ (*.sql.go)      │ │ (db.go)         │ │    (db.go)             ││
 │  │                 │ │                 │ │                        ││
 │  │ • GetInventory  │ │ • BeginTx()     │ │ • Health Checks        ││
 │  │ • UpdateWithVer │ │ • Commit()      │ │ • Connection Reuse     ││
@@ -63,12 +146,12 @@
                                     │ SQL Queries
                                     ▼
 ┌───────────────────────────────────────────────────────────────────┐
-│                         💾 DATABASE                               │
+│                         💾 DATABASE (db/)                         │
 │                                                                   │
 │    SQLite (Desarrollo) ────────────────► PostgreSQL (Producción) │
 │                                                                   │
 │  ┌─────────────────────────────────────────────────────────────┐ │
-│  │ 📊 Tables & Indexes                                         │ │
+│  │ 📊 Tables & Indexes (db/migrations/)                        │ │
 │  │                                                             │ │
 │  │ • products              (id, name, sku)                    │ │
 │  │ • inventory_items       (id, product_id, stock, version)   │ │
@@ -77,7 +160,7 @@
 │  │                                                             │ │
 │  │ 🔍 Critical Indexes:                                        │ │
 │  │ • idx_inventory_product_id (UNIQUE)                        │ │
-│  │ • idx_reservations_request_id                              │ │  
+│  │ • idx_reservations_request_id                              │ │
 │  │ • idx_idempotency_expires                                  │ │
 │  └─────────────────────────────────────────────────────────────┘ │
 └───────────────────────────────────────────────────────────────────┘
@@ -85,7 +168,7 @@
 
 ---
 
-## 2. CAP THEOREM DECISION: CONSISTENCIA > DISPONIBILIDAD
+## 3. CAP THEOREM DECISION: CONSISTENCIA > DISPONIBILIDAD
 
 ### 🎯 **DECISIÓN ARQUITECTÓNICA**
 
@@ -130,7 +213,7 @@ DISPONIBILIDAD (Rechazado)          vs.    CONSISTENCIA (Elegido)
 
 ---
 
-## 3. CONCURRENCY: OPTIMISTIC LOCKING CON VERSION FIELD
+## 4. CONCURRENCY: OPTIMISTIC LOCKING CON VERSION FIELD
 
 ### 🤔 **¿POR QUÉ OPTIMISTIC vs PESSIMISTIC?**
 
@@ -213,7 +296,7 @@ func (s *InventoryService) ReserveStock(ctx context.Context, req ReserveRequest)
 
 ---
 
-## 4. API ENDPOINTS SPECIFICATION
+## 5. API ENDPOINTS SPECIFICATION
 
 ### 🔗 **CORE INVENTORY OPERATIONS**
 
@@ -340,7 +423,7 @@ GET /health
 
 ---
 
-## 5. DATABASE SCHEMA DESIGN
+## 6. DATABASE SCHEMA DESIGN
 
 ### 📋 **PRODUCTS TABLE**
 ```sql
@@ -469,7 +552,7 @@ CREATE INDEX idx_audit_request ON audit_log(request_id);
 
 ---
 
-## 6. ARQUITECTURA DISTRIBUIDA - PATTERNS
+## 7. ARQUITECTURA DISTRIBUIDA - PATTERNS
 
 ### 🏗️ **MICROSERVICES EVOLUTION PATH**
 
@@ -544,7 +627,7 @@ Reserve-Purchase-Saga:
 
 ---
 
-## 7. MIGRATION STRATEGY: SQLite → PostgreSQL
+## 8. MIGRATION STRATEGY: SQLite → PostgreSQL
 
 ### 📁 **PHASE 1: SQLite (Desarrollo)**
 ```go
@@ -651,7 +734,7 @@ echo "Migration completed successfully!"
 
 ---
 
-## 8. OBSERVABILIDAD Y MONITOREO
+## 9. OBSERVABILIDAD Y MONITOREO
 
 ### 📊 **MÉTRICAS CLAVE DE NEGOCIO**
 ```go
@@ -774,7 +857,7 @@ func (h *HealthChecker) checkInventory(ctx context.Context) ComponentHealth {
 
 ---
 
-## 9. TESTING STRATEGY
+## 10. TESTING STRATEGY
 
 ### 🧪 **UNIT TESTS - Service Layer**
 ```go
@@ -979,7 +1062,7 @@ scenarios:
 
 ---
 
-## 10. DEPLOYMENT Y CONFIGURACIÓN
+## 11. DEPLOYMENT Y CONFIGURACIÓN
 
 ### ⚙️ **CONFIGURACIÓN POR AMBIENTE**
 ```go

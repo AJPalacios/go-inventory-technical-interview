@@ -310,6 +310,34 @@ PASS
 
 ---
 
+## 📂 Project Structure
+
+```
+inventory/
+├── cmd/
+│   └── server/              # Application entry point
+│       └── main.go
+├── internal/                # Private application code
+│   ├── api/                 # HTTP layer (Gin)
+│   │   ├── server.go
+│   │   ├── health.go
+│   │   └── handlers/
+│   ├── service/             # Business logic
+│   ├── repository/          # Data access (SQLC)
+│   ├── domain/              # Business entities
+│   └── config/              # Configuration
+├── pkg/                     # Public reusable libraries
+│   └── utils/
+├── db/                      # Database files
+│   ├── migrations/
+│   └── query/
+└── docs/                    # Documentation
+```
+
+Ver [ARCHITECTURE.md](docs/ARCHITECTURE.md) para detalles completos de la arquitectura.
+
+---
+
 ## � Quick Start
 
 ### 1. Setup & Configuration

@@ -4,21 +4,21 @@ import (
 	"database/sql"
 	"log"
 
-	"github.com/AJPalacios/inventory/api"
-	"github.com/AJPalacios/inventory/util"
+	"github.com/AJPalacios/inventory/internal/api"
+	"github.com/AJPalacios/inventory/internal/config"
 	_ "github.com/mattn/go-sqlite3"
 	"go.uber.org/zap"
 )
 
 func main() {
 	// Load configuration
-	cfg, err := util.LoadConfig(".")
+	cfg, err := config.LoadConfig("../..")
 	if err != nil {
 		log.Fatal("cannot load config:", err)
 	}
 
 	// Initialize logger
-	logger, err := util.NewLogger(cfg.LogLevel, cfg.Environment)
+	logger, err := config.NewLogger(cfg.LogLevel, cfg.Environment)
 	if err != nil {
 		log.Fatal("cannot initialize logger:", err)
 	}

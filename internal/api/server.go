@@ -3,22 +3,22 @@ package api
 import (
 	"database/sql"
 
-	"github.com/AJPalacios/inventory/util"
+	"github.com/AJPalacios/inventory/internal/config"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
 
 type Server struct {
-	config util.Config
+	config config.Config
 	router *gin.Engine
 	db     *sql.DB
 	logger *zap.Logger
 }
 
 // NewServer creates a new HTTP server and setup routing
-func NewServer(config util.Config, db *sql.DB, logger *zap.Logger) *Server {
+func NewServer(cfg config.Config, db *sql.DB, logger *zap.Logger) *Server {
 	server := &Server{
-		config: config,
+		config: cfg,
 		db:     db,
 		logger: logger,
 	}

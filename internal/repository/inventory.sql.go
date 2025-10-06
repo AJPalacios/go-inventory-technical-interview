@@ -540,8 +540,8 @@ func (q *Queries) GetReservationsByProduct(ctx context.Context, productID string
 const getValidIdempotencyKey = `-- name: GetValidIdempotencyKey :one
 SELECT request_id, operation_type, response_data, created_at, expires_at
 FROM idempotency_keys
-WHERE request_id = ?1 
-AND expires_at > CURRENT_TIMESTAMP
+WHERE request_id = ?1
+AND datetime(expires_at) > datetime('now')
 LIMIT 1
 `
 
@@ -671,11 +671,11 @@ func (q *Queries) ListProducts(ctx context.Context) ([]Product, error) {
 
 const markReservationsExpired = `-- name: MarkReservationsExpired :exec
 UPDATE reservations
-SET 
+SET
     status = 'expired',
-    updated_at = CURRENT_TIMESTAMP
-WHERE status = 'active' 
-AND expires_at < CURRENT_TIMESTAMP
+    updated_at = datetime('now')
+WHERE status = 'active'
+AND datetime(expires_at) < datetime('now')
 `
 
 // Batch release expired reservations
