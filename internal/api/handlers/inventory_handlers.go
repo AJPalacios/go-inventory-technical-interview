@@ -5,12 +5,15 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/AJPalacios/inventory/internal/domain"
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 )
 
@@ -36,33 +39,33 @@ func NewInventoryHandler(
 
 // ReserveStockRequest represents the request body for stock reservation.
 type ReserveStockRequest struct {
-	ProductID      string            `json:"product_id" binding:"required"`
-	Quantity       int32             `json:"quantity" binding:"required,min=1"`
-	TimeoutSeconds int32             `json:"timeout_seconds,omitempty"`
-	Reason         string            `json:"reason,omitempty"`
+	ProductID      string            `json:"product_id" binding:"required,uuid"`
+	Quantity       int32             `json:"quantity" binding:"required,min=1,max=100000"`
+	TimeoutSeconds int32             `json:"timeout_seconds,omitempty" binding:"omitempty,min=60,max=86400"`
+	Reason         string            `json:"reason,omitempty" binding:"omitempty,max=500"`
 	Metadata       map[string]string `json:"metadata,omitempty"`
-	ClientID       string            `json:"client_id,omitempty"`
+	ClientID       string            `json:"client_id,omitempty" binding:"omitempty,min=1,max=100"`
 }
 
 // ReleaseStockRequest represents the request body for stock release.
 type ReleaseStockRequest struct {
-	ReservationID string `json:"reservation_id" binding:"required"`
-	Reason        string `json:"reason" binding:"required"`
+	ReservationID string `json:"reservation_id" binding:"required,uuid"`
+	Reason        string `json:"reason" binding:"required,min=3,max=500"`
 }
 
 // UpdateStockRequest represents the request body for stock updates.
 type UpdateStockRequest struct {
-	ProductID      string            `json:"product_id" binding:"required"`
-	NewStock       int32             `json:"new_stock" binding:"min=0"`
-	AdjustmentType string            `json:"adjustment_type" binding:"required"`
-	Reason         string            `json:"reason" binding:"required"`
-	Reference      string            `json:"reference,omitempty"`
+	ProductID      string            `json:"product_id" binding:"required,uuid"`
+	NewStock       int32             `json:"new_stock" binding:"required,min=0,max=100000"`
+	AdjustmentType string            `json:"adjustment_type" binding:"required,oneof=SET INCREMENT DECREMENT"`
+	Reason         string            `json:"reason" binding:"required,min=3,max=500"`
+	Reference      string            `json:"reference,omitempty" binding:"omitempty,max=100"`
 	Metadata       map[string]string `json:"metadata,omitempty"`
 }
 
 // BatchReserveStockRequest represents the request body for batch reservations.
 type BatchReserveStockRequest struct {
-	Requests []ReserveStockRequest `json:"requests" binding:"required,min=1,max=100"`
+	Requests []ReserveStockRequest `json:"requests" binding:"required,min=1,max=100,dive"`
 }
 
 // APIResponse represents a standard API response format.
@@ -103,7 +106,7 @@ type APIMeta struct {
 func (h *InventoryHandler) ReserveStock(c *gin.Context) {
 	var req ReserveStockRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		h.handleError(c, http.StatusBadRequest, "INVALID_REQUEST", "Invalid request body", err.Error())
+		h.handleValidationError(c, err)
 		return
 	}
 
@@ -154,7 +157,7 @@ func (h *InventoryHandler) ReserveStock(c *gin.Context) {
 func (h *InventoryHandler) ReleaseStock(c *gin.Context) {
 	var req ReleaseStockRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		h.handleError(c, http.StatusBadRequest, "INVALID_REQUEST", "Invalid request body", err.Error())
+		h.handleValidationError(c, err)
 		return
 	}
 
@@ -201,7 +204,7 @@ func (h *InventoryHandler) ReleaseStock(c *gin.Context) {
 func (h *InventoryHandler) UpdateStock(c *gin.Context) {
 	var req UpdateStockRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		h.handleError(c, http.StatusBadRequest, "INVALID_REQUEST", "Invalid request body", err.Error())
+		h.handleValidationError(c, err)
 		return
 	}
 
@@ -242,7 +245,7 @@ func (h *InventoryHandler) UpdateStock(c *gin.Context) {
 // @Description Retrieve current stock levels and information for a product
 // @Tags inventory
 // @Produce json
-// @Param productId path string true "Product ID"
+// @Param productId path string true "Product ID (UUID format)"
 // @Success 200 {object} APIResponse{data=domain.StockInfo}
 // @Failure 400 {object} APIResponse{error=APIError}
 // @Failure 404 {object} APIResponse{error=APIError}
@@ -255,7 +258,7 @@ func (h *InventoryHandler) GetStock(c *gin.Context) {
 		return
 	}
 
-	// Validate UUID format
+	// Validate UUID format using Gin's validator
 	if _, err := uuid.Parse(productID); err != nil {
 		h.handleError(c, http.StatusBadRequest, "INVALID_PRODUCT_ID", "Product ID must be a valid UUID", err.Error())
 		return
@@ -289,7 +292,7 @@ func (h *InventoryHandler) GetStock(c *gin.Context) {
 func (h *InventoryHandler) BatchReserveStock(c *gin.Context) {
 	var req BatchReserveStockRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		h.handleError(c, http.StatusBadRequest, "INVALID_REQUEST", "Invalid request body", err.Error())
+		h.handleValidationError(c, err)
 		return
 	}
 
@@ -380,6 +383,69 @@ func (h *InventoryHandler) handleError(c *gin.Context, status int, code, message
 	})
 
 	c.JSON(status, response)
+}
+
+// handleValidationError handles validation errors from Gin binding.
+func (h *InventoryHandler) handleValidationError(c *gin.Context, err error) {
+	requestID := h.getOrGenerateRequestID(c)
+
+	// Extract validation errors
+	var validationErrors []string
+	if validationErrs, ok := err.(validator.ValidationErrors); ok {
+		for _, fieldErr := range validationErrs {
+			validationErrors = append(validationErrors, h.formatValidationError(fieldErr))
+		}
+	} else {
+		validationErrors = append(validationErrors, err.Error())
+	}
+
+	details := strings.Join(validationErrors, "; ")
+
+	response := APIResponse{
+		Success: false,
+		Error: &APIError{
+			Code:    "VALIDATION_ERROR",
+			Message: "Request validation failed",
+			Details: details,
+		},
+		Meta: &APIMeta{
+			RequestID: requestID,
+			Timestamp: time.Now().UTC().Format(time.RFC3339),
+			Version:   "v1",
+		},
+	}
+
+	h.logger.Warn("Validation error", map[string]interface{}{
+		"errors":     validationErrors,
+		"request_id": requestID,
+		"path":       c.Request.URL.Path,
+		"method":     c.Request.Method,
+	})
+
+	c.JSON(http.StatusBadRequest, response)
+}
+
+// formatValidationError formats a single validation error into a user-friendly message.
+func (h *InventoryHandler) formatValidationError(err validator.FieldError) string {
+	field := err.Field()
+	tag := err.Tag()
+
+	switch tag {
+	case "required":
+		return fmt.Sprintf("field '%s' is required", field)
+	case "uuid":
+		return fmt.Sprintf("field '%s' must be a valid UUID", field)
+	case "min":
+		return fmt.Sprintf("field '%s' must be at least %s", field, err.Param())
+	case "max":
+		return fmt.Sprintf("field '%s' must be at most %s", field, err.Param())
+	case "oneof":
+		return fmt.Sprintf("field '%s' must be one of: %s", field, err.Param())
+	case "dive":
+		return fmt.Sprintf("invalid item in array '%s'", field)
+	default:
+		return fmt.Sprintf("field '%s' failed validation '%s'", field, tag)
+	}
 }
 
 // handleServiceError handles errors from the service layer.

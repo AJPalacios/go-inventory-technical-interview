@@ -56,8 +56,8 @@ type ValidationService interface {
 
 // MetricsProvider defines interface for metrics collection (agnostic).
 //
-// This interface allows switching between different metrics providers
-// (Prometheus, StatsD, DataDog, etc.) without changing business logic.
+// This interface allows using DataDog metrics (placeholder implementation)
+// or in-memory metrics for testing without changing business logic.
 type MetricsProvider interface {
 	// Counters
 	IncrementCounter(name string, labels map[string]string)
@@ -76,8 +76,7 @@ type MetricsProvider interface {
 
 // Logger defines interface for structured logging (agnostic).
 //
-// This interface allows switching between different logging providers
-// (Zap, Logrus, etc.) without changing business logic.
+// This interface provides structured logging compatible with DataDog logs.
 type Logger interface {
 	Debug(msg string, fields ...map[string]interface{})
 	Info(msg string, fields ...map[string]interface{})
@@ -102,4 +101,22 @@ type CircuitBreaker interface {
 	Execute(operation func() (interface{}, error)) (interface{}, error)
 	GetState() string
 	Reset()
+}
+
+// TracingProvider defines interface for distributed tracing (agnostic).
+//
+// This interface provides DataDog APM-style tracing (placeholder implementation).
+type TracingProvider interface {
+	StartSpan(ctx context.Context, operationName string) (Span, context.Context)
+	InjectContext(ctx context.Context) map[string]string
+	ExtractContext(headers map[string]string) context.Context
+}
+
+// Span represents a distributed tracing span.
+type Span interface {
+	SetTag(key string, value interface{})
+	SetError(err error)
+	LogEvent(event string, fields map[string]interface{})
+	Finish()
+	Context() context.Context
 }

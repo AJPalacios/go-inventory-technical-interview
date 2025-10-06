@@ -30,6 +30,17 @@ Archivo completo con todos los endpoints de la API:
 - ✅ Pruebas de manejo de errores
 - ✅ Workflows completos (orden, carrito abandonado, restock)
 
+### `validation-errors.http`
+Suite completa de pruebas de validación:
+- ✅ Todos los errores de validación posibles por endpoint
+- ✅ Campos requeridos faltantes
+- ✅ Formatos inválidos (UUID, rangos, etc.)
+- ✅ Valores fuera de rango (min/max)
+- ✅ Validaciones de tipo `oneof`
+- ✅ Validación de arrays (dive)
+- ✅ Ejemplos de múltiples errores simultáneos
+- ✅ Formato de respuesta de error esperado
+
 ## 🚀 Cómo Usar
 
 ### Método 1: VSCode REST Client
