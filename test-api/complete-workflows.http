@@ -1,62 +1,42 @@
-# 🚀 COMPLETE BUSINESS WORKFLOWS - Step by Step Guide
+# 🚀 COMPLETE BUSINESS WORKFLOWS
 #
-# 📚 This file contains complete end-to-end business scenarios
-# Each workflow is self-contained and demonstrates real-world usage
+# 📚 End-to-end business scenarios with step-by-step instructions
 #
-# 🎯 HOW TO USE:
-# 1. Execute each step in sequence (1a, 1b, 1c, etc.)
+# 💡 HOW TO USE:
+# 1. Execute steps in sequence (A1, A2, A3, etc.)
 # 2. Copy values from responses where indicated
-# 3. Observe how stock levels change throughout the process
-# 4. Each workflow is independent - you can run them in any order
-
-# 🏷️ VARIABLES
+# 3. Each workflow demonstrates a complete business flow
+#
+# 🔧 SETUP
 @baseUrl = http://localhost:8080
-@apiVersion = /api/v1
 
 ###############################################################################
 # 🛍️ WORKFLOW A: SUCCESSFUL E-COMMERCE ORDER
 # Complete customer journey from browsing to purchase
 ###############################################################################
 
-### A1. Customer browses product page - Check availability
-# Product: Laptop HP Pavilion 15
-# Customer sees: "X units available" on product page
-GET {{baseUrl}}{{apiVersion}}/inventory/stock/2d70d1dc-cd3a-4f40-afb0-52e16445bf36
-Content-Type: application/json
-X-Request-ID: workflow-a-browse
+### A1. Check stock availability
+GET {{baseUrl}}/api/v1/inventory/stock/2d70d1dc-cd3a-4f40-afb0-52e16445bf36
 
-### A2. Customer adds to cart and proceeds to checkout
-# System reserves stock to prevent overselling during checkout
-POST {{baseUrl}}{{apiVersion}}/inventory/reserve
+### A2. Reserve stock for checkout
+POST {{baseUrl}}/api/v1/inventory/reserve
 Content-Type: application/json
-X-Request-ID: workflow-a-checkout
 
 {
   "product_id": "2d70d1dc-cd3a-4f40-afb0-52e16445bf36",
   "quantity": 1,
   "request_id": "checkout-{{$timestamp}}-laptop",
   "timeout_seconds": 600,
-  "reason": "Customer checkout process",
-  "client_id": "ecommerce-web",
-  "metadata": {
-    "order_id": "ORD-{{$timestamp}}",
-    "customer_id": "customer-{{$randomInt 1000 9999}}",
-    "product_name": "Laptop HP Pavilion 15",
-    "unit_price": "899.99",
-    "checkout_step": "payment_processing"
-  }
+  "reason": "Customer checkout - Laptop HP Pavilion 15"
 }
 
-### A3. Verify stock is now reserved (available should decrease, reserved increase)
-GET {{baseUrl}}{{apiVersion}}/inventory/stock/2d70d1dc-cd3a-4f40-afb0-52e16445bf36
-Content-Type: application/json
-X-Request-ID: workflow-a-verify
+### A3. Verify stock was reserved
+GET {{baseUrl}}/api/v1/inventory/stock/2d70d1dc-cd3a-4f40-afb0-52e16445bf36
 
-### A4. Payment successful - Complete the order
-# 📝 COPY THE RESERVATION_ID from step A2 response
-POST {{baseUrl}}{{apiVersion}}/inventory/release
+### A4. Complete the purchase
+# 📝 Copy reservation_id from A2 response
+POST {{baseUrl}}/api/v1/inventory/release
 Content-Type: application/json
-X-Request-ID: workflow-a-complete
 
 {
   "reservation_id": "PASTE_RESERVATION_ID_FROM_A2",
@@ -64,53 +44,33 @@ X-Request-ID: workflow-a-complete
   "request_id": "complete-{{$timestamp}}"
 }
 
-### A5. Final check - Stock permanently reduced, ready for shipping
-GET {{baseUrl}}{{apiVersion}}/inventory/stock/2d70d1dc-cd3a-4f40-afb0-52e16445bf36
-Content-Type: application/json
-X-Request-ID: workflow-a-final
+### A5. Final stock check
+GET {{baseUrl}}/api/v1/inventory/stock/2d70d1dc-cd3a-4f40-afb0-52e16445bf36
 
 ###############################################################################
 # 🛒 WORKFLOW B: ABANDONED SHOPPING CART
 # Customer abandons cart, stock is automatically released
 ###############################################################################
 
-### B1. Customer adds expensive item to cart
-# Product: Sony WH-1000XM4 Headphones ($349.99)
-GET {{baseUrl}}{{apiVersion}}/inventory/stock/47569eb2-fe19-43cb-929d-aedfd59dc199
-Content-Type: application/json
-X-Request-ID: workflow-b-initial
+### B1. Check initial stock
+GET {{baseUrl}}/api/v1/inventory/stock/47569eb2-fe19-43cb-929d-aedfd59dc199
 
-### B2. Item reserved during cart session (15 min timeout)
-POST {{baseUrl}}{{apiVersion}}/inventory/reserve
+### B2. Add to cart (reserve stock)
+POST {{baseUrl}}/api/v1/inventory/reserve
 Content-Type: application/json
-X-Request-ID: workflow-b-cart
 
 {
   "product_id": "47569eb2-fe19-43cb-929d-aedfd59dc199",
   "quantity": 1,
   "request_id": "cart-{{$timestamp}}-headphones",
   "timeout_seconds": 900,
-  "reason": "Shopping cart hold",
-  "client_id": "mobile-app",
-  "metadata": {
-    "cart_id": "cart-{{$randomInt 10000 99999}}",
-    "session_id": "session-{{$guid}}",
-    "platform": "iOS",
-    "product_name": "Sony WH-1000XM4",
-    "unit_price": "349.99"
-  }
+  "reason": "Shopping cart hold"
 }
 
-### B3. Customer hesitates, checks competitors (stock still reserved)
-GET {{baseUrl}}{{apiVersion}}/inventory/stock/47569eb2-fe19-43cb-929d-aedfd59dc199
+### B3. Customer abandons cart
+# 📝 Copy reservation_id from B2 response
+POST {{baseUrl}}/api/v1/inventory/release
 Content-Type: application/json
-X-Request-ID: workflow-b-hesitate
-
-### B4. Customer decides not to buy - Abandons cart
-# 📝 COPY THE RESERVATION_ID from step B2 response
-POST {{baseUrl}}{{apiVersion}}/inventory/release
-Content-Type: application/json
-X-Request-ID: workflow-b-abandon
 
 {
   "reservation_id": "PASTE_RESERVATION_ID_FROM_B2",
@@ -118,10 +78,47 @@ X-Request-ID: workflow-b-abandon
   "request_id": "abandon-{{$timestamp}}"
 }
 
-### B5. Stock returned to available pool for other customers
-GET {{baseUrl}}{{apiVersion}}/inventory/stock/47569eb2-fe19-43cb-929d-aedfd59dc199
+### B4. Verify stock returned to available
+GET {{baseUrl}}/api/v1/inventory/stock/47569eb2-fe19-43cb-929d-aedfd59dc199
+
+###############################################################################
+# 📦 WORKFLOW C: WAREHOUSE RESTOCK
+# Demonstrate inventory management operations
+###############################################################################
+
+### C1. Check current stock before shipment
+GET {{baseUrl}}/api/v1/inventory/stock/f7d85ff3-6dbf-4ee8-bd61-54453610e441
+
+### C2. Receive new inventory shipment
+PUT {{baseUrl}}/api/v1/inventory/stock
 Content-Type: application/json
-X-Request-ID: workflow-b-released
+
+{
+  "product_id": "f7d85ff3-6dbf-4ee8-bd61-54453610e441",
+  "new_stock": 50,
+  "adjustment_type": "restock",
+  "reason": "Weekly SSD shipment received",
+  "reference": "PO-{{$timestamp}}",
+  "request_id": "restock-{{$timestamp}}"
+}
+
+### C3. Verify updated stock levels
+GET {{baseUrl}}/api/v1/inventory/stock/f7d85ff3-6dbf-4ee8-bd61-54453610e441
+
+###############################################################################
+# 💡 WORKFLOW TIPS
+#
+# A. E-commerce Success: Check → Reserve → Purchase → Complete
+# B. Cart Abandonment: Reserve → Cancel → Release  
+# C. Warehouse Ops: Check → Restock → Verify
+#
+# 🔄 Each workflow demonstrates:
+# - Real-time stock visibility
+# - Atomic operations (all succeed or fail)
+# - Proper business logic handling
+# - Audit trail with metadata
+#
+###############################################################################
 
 ###############################################################################
 # 📦 WORKFLOW C: WAREHOUSE OPERATIONS
@@ -140,252 +137,3 @@ X-Request-ID: workflow-c-receive
 
 {
   "product_id": "f7d85ff3-6dbf-4ee8-bd61-54453610e441",
-  "new_stock": 25,
-  "adjustment_type": "restock",
-  "reason": "Received Samsung SSD shipment",
-  "reference": "PO-{{$timestamp}}",
-  "request_id": "receive-{{$timestamp}}",
-  "metadata": {
-    "supplier": "Samsung Electronics",
-    "shipment_id": "SHIP-{{$randomInt 100000 999999}}",
-    "received_by": "warehouse_team",
-    "units_received": 25,
-    "unit_cost": "89.99",
-    "batch_code": "SSD-{{$timestamp}}"
-  }
-}
-
-### C3. Inventory updated - Verify new stock levels
-GET {{baseUrl}}{{apiVersion}}/inventory/stock/f7d85ff3-6dbf-4ee8-bd61-54453610e441
-Content-Type: application/json
-X-Request-ID: workflow-c-updated
-
-### C4. First customer orders from new inventory
-POST {{baseUrl}}{{apiVersion}}/inventory/reserve
-Content-Type: application/json
-X-Request-ID: workflow-c-order
-
-{
-  "product_id": "f7d85ff3-6dbf-4ee8-bd61-54453610e441",
-  "quantity": 2,
-  "request_id": "order-{{$timestamp}}-ssd",
-  "timeout_seconds": 300,
-  "reason": "Customer order - fresh inventory",
-  "client_id": "web-store",
-  "metadata": {
-    "order_id": "ORD-{{$timestamp}}",
-    "customer_id": "customer-{{$randomInt 5000 9999}}",
-    "unit_price": "129.99",
-    "promotion": "new_stock_discount"
-  }
-}
-
-### C5. Order processed immediately (fast fulfillment)
-# 📝 COPY THE RESERVATION_ID from step C4 response
-POST {{baseUrl}}{{apiVersion}}/inventory/release
-Content-Type: application/json
-X-Request-ID: workflow-c-fulfill
-
-{
-  "reservation_id": "PASTE_RESERVATION_ID_FROM_C4",
-  "reason": "purchased",
-  "request_id": "fulfill-{{$timestamp}}"
-}
-
-### C6. Final inventory after first sale from new shipment
-GET {{baseUrl}}{{apiVersion}}/inventory/stock/f7d85ff3-6dbf-4ee8-bd61-54453610e441
-Content-Type: application/json
-X-Request-ID: workflow-c-final
-
-###############################################################################
-# �� WORKFLOW D: CORPORATE BULK ORDER
-# B2B customer orders complete office setup
-###############################################################################
-
-### D1. Corporate customer plans office setup - Check bulk availability
-
-# Check monitor availability (need 3 for new team)
-GET {{baseUrl}}{{apiVersion}}/inventory/stock/fc39adf6-784c-43f3-bb0d-9ed79613dd21
-Content-Type: application/json
-X-Request-ID: workflow-d-check-monitor
-
-# Check keyboard availability
-GET {{baseUrl}}{{apiVersion}}/inventory/stock/e08e3e7e-9126-49e4-9caf-63885a07bd78
-Content-Type: application/json
-X-Request-ID: workflow-d-check-keyboard
-
-# Check mouse availability
-GET {{baseUrl}}{{apiVersion}}/inventory/stock/2da3b8d3-69f1-46e6-a068-874532d5126a
-Content-Type: application/json
-X-Request-ID: workflow-d-check-mouse
-
-### D2. Atomic bulk reservation - All items must be available
-POST {{baseUrl}}{{apiVersion}}/inventory/batch/reserve
-Content-Type: application/json
-X-Request-ID: workflow-d-bulk
-
-{
-  "requests": [
-    {
-      "product_id": "fc39adf6-784c-43f3-bb0d-9ed79613dd21",
-      "quantity": 3,
-      "request_id": "bulk-{{$timestamp}}-monitors",
-      "timeout_seconds": 3600,
-      "reason": "Corporate setup - Dell monitors",
-      "client_id": "b2b-portal",
-      "metadata": {
-        "corporate_id": "CORP-{{$randomInt 1000 9999}}",
-        "company": "TechStartup Inc",
-        "department": "Engineering",
-        "setup_type": "new_team_workstations"
-      }
-    },
-    {
-      "product_id": "e08e3e7e-9126-49e4-9caf-63885a07bd78",
-      "quantity": 3,
-      "request_id": "bulk-{{$timestamp}}-keyboards",
-      "timeout_seconds": 3600,
-      "reason": "Corporate setup - Keychron keyboards",
-      "client_id": "b2b-portal",
-      "metadata": {
-        "corporate_id": "CORP-{{$randomInt 1000 9999}}",
-        "company": "TechStartup Inc",
-        "department": "Engineering",
-        "setup_type": "new_team_workstations"
-      }
-    },
-    {
-      "product_id": "2da3b8d3-69f1-46e6-a068-874532d5126a",
-      "quantity": 3,
-      "request_id": "bulk-{{$timestamp}}-mice",
-      "timeout_seconds": 3600,
-      "reason": "Corporate setup - Logitech mice",
-      "client_id": "b2b-portal",
-      "metadata": {
-        "corporate_id": "CORP-{{$randomInt 1000 9999}}",
-        "company": "TechStartup Inc",
-        "department": "Engineering",
-        "setup_type": "new_team_workstations"
-      }
-    }
-  ]
-}
-
-### D3. Verify bulk reservation succeeded
-GET {{baseUrl}}{{apiVersion}}/inventory/stock/fc39adf6-784c-43f3-bb0d-9ed79613dd21
-Content-Type: application/json
-X-Request-ID: workflow-d-verify-monitors
-
-GET {{baseUrl}}{{apiVersion}}/inventory/stock/e08e3e7e-9126-49e4-9caf-63885a07bd78
-Content-Type: application/json
-X-Request-ID: workflow-d-verify-keyboards
-
-### D4. Corporate payment approved - Complete first item (example)
-# 📝 COPY ONE RESERVATION_ID from step D2 batch response
-# In real system, all would be completed programmatically
-POST {{baseUrl}}{{apiVersion}}/inventory/release
-Content-Type: application/json
-X-Request-ID: workflow-d-complete
-
-{
-  "reservation_id": "PASTE_RESERVATION_ID_FROM_D2_BATCH",
-  "reason": "purchased",
-  "request_id": "corp-complete-{{$timestamp}}"
-}
-
-###############################################################################
-# 🔧 WORKFLOW E: INVENTORY MANAGEMENT
-# Admin operations for stock corrections and adjustments
-###############################################################################
-
-### E1. Inventory audit finds discrepancy
-GET {{baseUrl}}{{apiVersion}}/inventory/stock/834004f0-f683-4e96-ae6b-bb6673869d24
-Content-Type: application/json
-X-Request-ID: workflow-e-audit
-
-### E2. Physical count shows more inventory than system
-PUT {{baseUrl}}{{apiVersion}}/inventory/stock
-Content-Type: application/json
-X-Request-ID: workflow-e-correction
-
-{
-  "product_id": "834004f0-f683-4e96-ae6b-bb6673869d24",
-  "new_stock": 15,
-  "adjustment_type": "correction",
-  "reason": "Physical inventory count correction",
-  "reference": "AUDIT-{{$timestamp}}",
-  "request_id": "audit-{{$timestamp}}",
-  "metadata": {
-    "auditor": "inventory_team",
-    "audit_date": "2025-10-06",
-    "system_count": "195",
-    "physical_count": "210",
-    "difference": "+15",
-    "audit_id": "AUD-{{$randomInt 1000 9999}}"
-  }
-}
-
-### E3. Customer returns defective RAM
-PUT {{baseUrl}}{{apiVersion}}/inventory/stock
-Content-Type: application/json
-X-Request-ID: workflow-e-return
-
-{
-  "product_id": "834004f0-f683-4e96-ae6b-bb6673869d24",
-  "new_stock": 2,
-  "adjustment_type": "return",
-  "reason": "Customer return - defective units replaced",
-  "reference": "RET-{{$timestamp}}",
-  "request_id": "return-{{$timestamp}}",
-  "metadata": {
-    "return_reason": "defective",
-    "customer_id": "customer-{{$randomInt 1000 9999}}",
-    "return_date": "2025-10-06",
-    "condition": "defective",
-    "action": "refund_issued",
-    "rma_number": "RMA-{{$randomInt 10000 99999}}"
-  }
-}
-
-### E4. Final inventory after adjustments
-GET {{baseUrl}}{{apiVersion}}/inventory/stock/834004f0-f683-4e96-ae6b-bb6673869d24
-Content-Type: application/json
-X-Request-ID: workflow-e-final
-
-###############################################################################
-# 📊 MONITORING & TESTING UTILITIES
-###############################################################################
-
-### Health Check - Always start here
-GET {{baseUrl}}/health
-Content-Type: application/json
-
-### API Documentation - Open in browser
-GET {{baseUrl}}/docs
-
-### OpenAPI Specification - For API tools
-GET {{baseUrl}}/openapi.json
-
-###############################################################################
-# 📝 WORKFLOW SUMMARY
-#
-# A. E-commerce Success: Browse → Reserve → Pay → Complete
-# B. Cart Abandonment: Add to cart → Reserve → Abandon → Release
-# C. Supply Chain: Receive inventory → Update stock → Sell → Fulfill
-# D. B2B Bulk Order: Check availability → Batch reserve → Approve → Complete
-# E. Inventory Management: Audit → Correct → Handle returns → Update
-#
-# 🎯 Each workflow demonstrates:
-# - Stock visibility and real-time updates
-# - Optimistic locking preventing overselling
-# - Idempotent operations for reliability
-# - Comprehensive audit trail via metadata
-# - Business rule enforcement
-# - Error handling and recovery
-#
-# 💡 Tips:
-# - Always copy reservation_id from responses
-# - Check stock before and after operations
-# - Use meaningful metadata for business context
-# - Monitor request_id for distributed tracing
-###############################################################################

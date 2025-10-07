@@ -1,180 +1,77 @@
-# 🛒 Inventory Management API - Test Suite
+# 🛒 Inventory API - Simple Test Suite
 #
-# 📋 PREREQUISITES:
-# 1. Install VSCode REST Client extension: https://marketplace.visualstudio.com/items?itemName=humao.rest-client
-# 2. Start the server: make run (or go run cmd/server/main.go)
-# 3. Server should be running on http://localhost:8080
+# 📋 SETUP:
+# 1. Start server: make run
+# 2. Server runs on: http://localhost:8080
+# 3. Click "Send Request" above each ### separator
 #
-# 🚀 HOW TO USE:
-# - Click "Send Request" above each ### separator
-# - Variables like {{$guid}} generate unique values automatically
-# - Copy reservation_id from responses to use in release tests
-# - Follow the workflow examples for complete business scenarios
-#
-# 🏷️ VARIABLES
+# � TEST PRODUCT
 @baseUrl = http://localhost:8080
-@apiVersion = /api/v1
-
-# 🎯 Primary test product (Teclado Mecánico Keychron K2)
 @productId = e08e3e7e-9126-49e4-9caf-63885a07bd78
-@productName = Teclado Mecánico Keychron K2
-
-# 💡 Test helpers
-@testRequestId = {{$guid}}
-@testOrderId = ORD-{{$timestamp}}
-@testCustomerId = CUST-{{$randomInt 1000 9999}}
-
-# Alternative product IDs from seed data:
-# @productIdLaptop = 2d70d1dc-cd3a-4f40-afb0-52e16445bf36     # Laptop HP Pavilion 15 (25 available, 5 reserved)
-# @productIdMouse = 2da3b8d3-69f1-46e6-a068-874532d5126a      # Mouse Logitech MX Master 3 (150 available, 10 reserved)
-# @productIdMonitor = fc39adf6-784c-43f3-bb0d-9ed79613dd21    # Monitor Dell 27" 4K (30 available, 0 reserved)
-# @productIdWebcam = cf43ddc3-c4da-4a98-b011-67b33223fae1     # Webcam Logitech C920 (45 available, 5 reserved)
-# @productIdHeadphones = 47569eb2-fe19-43cb-929d-aedfd59dc199 # Audífonos Sony WH-1000XM4 (60 available, 10 reserved)
-# @productIdSSD = f7d85ff3-6dbf-4ee8-bd61-54453610e441        # SSD Samsung 1TB (100 available, 0 reserved)
-# @productIdRAM = 834004f0-f683-4e96-ae6b-bb6673869d24        # RAM Corsair 16GB DDR4 (200 available, 20 reserved)
-# @productIdHub = cbb6a942-8687-4dd0-85ba-82f102f25ce1        # Hub USB-C Anker (75 available, 5 reserved)
-# @productIdCable = 00907a59-5b4b-4432-8c49-e8bca4683799      # Cable HDMI 4K 2m (300 available, 0 reserved)
 
 ###############################################################################
-# 🏥 HEALTH & STATUS CHECKS
-# Start here to verify the server is running properly
+# 🏥 SYSTEM STATUS
 ###############################################################################
 
-### 1. 🔍 Health Check - System Status
-# Verify server is running and database is connected
-# Expected: 200 OK with service status
+### Health Check
 GET {{baseUrl}}/health
-Content-Type: application/json
 
-### 2. 📊 API Documentation - Interactive Swagger UI
-# Open this URL in your browser for interactive API docs
-# Expected: HTML page with Swagger UI interface
+### API Documentation (open in browser)
 GET {{baseUrl}}/docs
 
-### 3. 📋 OpenAPI Specification
-# Get the complete OpenAPI 3.0.3 specification
-# Expected: JSON with all endpoints, schemas, and examples
+### OpenAPI Specification
 GET {{baseUrl}}/openapi.json
 
 ###############################################################################
-# INVENTORY STOCK OPERATIONS
+# 📦 BASIC OPERATIONS
 ###############################################################################
 
-### 3. Get Stock Information
-# Retrieve stock details for a specific product
-GET {{baseUrl}}{{apiVersion}}/inventory/stock/{{productId}}
+### Get Stock Information
+GET {{baseUrl}}/api/v1/inventory/stock/{{productId}}
+
+### Reserve Stock (Basic)
+POST {{baseUrl}}/api/v1/inventory/reserve
 Content-Type: application/json
-X-Request-ID: req-get-stock-{{$timestamp}}
-
-###
-
-### 4. Get Stock - Product Not Found (Test Error Handling)
-# Test 404 error when product doesn't exist
-GET {{baseUrl}}{{apiVersion}}/inventory/stock/non-existent-product
-Content-Type: application/json
-X-Request-ID: req-get-stock-404-{{$timestamp}}
-
-###############################################################################
-# RESERVE STOCK OPERATIONS
-###############################################################################
-
-### 5. Reserve Stock - Simple
-# Basic stock reservation with minimal parameters
-POST {{baseUrl}}{{apiVersion}}/inventory/reserve
-Content-Type: application/json
-X-Request-ID: req-reserve-{{$guid}}
 
 {
   "product_id": "{{productId}}",
   "quantity": 2,
   "request_id": "{{$guid}}",
   "timeout_seconds": 300,
-  "reason": "Customer order",
-  "metadata": {
-    "order_id": "ORD-{{$timestamp}}",
-    "customer_id": "CUST-12345"
-  }
+  "reason": "Customer order"
 }
 
-###
-
-### 6. Reserve Stock - With Custom Timeout
-# Reserve stock with 10 minute timeout
-POST {{baseUrl}}{{apiVersion}}/inventory/reserve
+### Release Stock 
+# Replace RESERVATION_ID with actual ID from reserve response
+POST {{baseUrl}}/api/v1/inventory/release
 Content-Type: application/json
-X-Request-ID: req-reserve-timeout-{{$guid}}
+
+{
+  "reservation_id": "REPLACE_WITH_ACTUAL_RESERVATION_ID",
+  "reason": "cancelled",
+  "request_id": "{{$guid}}"
+}
+
+### Update Stock (Add Inventory)
+PUT {{baseUrl}}/api/v1/inventory/stock
+Content-Type: application/json
 
 {
   "product_id": "{{productId}}",
-  "quantity": 1,
-  "request_id": "{{$guid}}",
-  "timeout_seconds": 600,
-  "reason": "Extended checkout session",
-  "client_id": "web-app",
-  "metadata": {
-    "session_id": "sess-{{$timestamp}}",
-    "checkout_step": "payment"
-  }
-}
-
-###
-
-### 7. Reserve Stock - Idempotency Test
-# Test idempotency by using the same request_id twice
-# First request
-POST {{baseUrl}}{{apiVersion}}/inventory/reserve
-Content-Type: application/json
-X-Request-ID: req-idempotency-test
-
-{
-  "product_id": "{{productId}}",
-  "quantity": 1,
-  "request_id": "idempotency-test-123",
-  "timeout_seconds": 300,
-  "reason": "Idempotency test"
-}
-
-###
-
-### 8. Reserve Stock - Same Request ID (Should return cached result)
-# Second request with same request_id - should return same result
-POST {{baseUrl}}{{apiVersion}}/inventory/reserve
-Content-Type: application/json
-X-Request-ID: req-idempotency-test-2
-
-{
-  "product_id": "{{productId}}",
-  "quantity": 1,
-  "request_id": "idempotency-test-123",
-  "timeout_seconds": 300,
-  "reason": "Idempotency test duplicate"
-}
-
-###
-
-### 9. Reserve Stock - Insufficient Stock (Test Error)
-# Try to reserve more stock than available
-POST {{baseUrl}}{{apiVersion}}/inventory/reserve
-Content-Type: application/json
-X-Request-ID: req-reserve-error-{{$guid}}
-
-{
-  "product_id": "{{productId}}",
-  "quantity": 999999,
-  "request_id": "{{$guid}}",
-  "timeout_seconds": 300,
-  "reason": "Test insufficient stock error"
+  "new_stock": 50,
+  "adjustment_type": "restock",
+  "reason": "New shipment received",
+  "reference": "PO-{{$timestamp}}",
+  "request_id": "{{$guid}}"
 }
 
 ###############################################################################
-# BATCH RESERVE OPERATIONS
+# 🔧 ADVANCED OPERATIONS
 ###############################################################################
 
-### 10. Batch Reserve Stock
-# Reserve stock for multiple products in one request
-POST {{baseUrl}}{{apiVersion}}/inventory/batch/reserve
+### Batch Reserve (Multiple Products)
+POST {{baseUrl}}/api/v1/inventory/batch/reserve
 Content-Type: application/json
-X-Request-ID: req-batch-{{$guid}}
 
 {
   "requests": [
@@ -183,620 +80,21 @@ X-Request-ID: req-batch-{{$guid}}
       "quantity": 2,
       "request_id": "batch-{{$guid}}-1",
       "timeout_seconds": 300,
-      "reason": "Mouse Logitech para oficina",
-      "metadata": {
-        "office_id": "OFF-001"
-      }
+      "reason": "Bulk order item 1"
     },
     {
       "product_id": "cf43ddc3-c4da-4a98-b011-67b33223fae1",
       "quantity": 1,
       "request_id": "batch-{{$guid}}-2",
       "timeout_seconds": 300,
-      "reason": "Webcam para reuniones",
-      "metadata": {
-        "department": "IT"
-      }
-    },
-    {
-      "product_id": "00907a59-5b4b-4432-8c49-e8bca4683799",
-      "quantity": 3,
-      "request_id": "batch-{{$guid}}-3",
-      "timeout_seconds": 300,
-      "reason": "Cables HDMI para setup",
-      "metadata": {
-        "setup_id": "SETUP-{{$timestamp}}"
-      }
+      "reason": "Bulk order item 2"
     }
   ]
 }
 
 ###############################################################################
-# RELEASE STOCK OPERATIONS
+# ❌ ERROR TESTING
 ###############################################################################
 
-### 11. Release Stock Reservation
-# Release a previously created reservation
-# NOTE: Update reservation_id with actual ID from reserve response
-POST {{baseUrl}}{{apiVersion}}/inventory/release
-Content-Type: application/json
-X-Request-ID: req-release-{{$guid}}
-
-{
-  "reservation_id": "REPLACE_WITH_ACTUAL_RESERVATION_ID",
-  "reason": "cancelled",
-  "request_id": "{{$guid}}"
-}
-
-###
-
-### 12. Release Stock - Order Purchased
-# Release reservation when order is completed
-POST {{baseUrl}}{{apiVersion}}/inventory/release
-Content-Type: application/json
-X-Request-ID: req-release-purchased-{{$guid}}
-
-{
-  "reservation_id": "REPLACE_WITH_ACTUAL_RESERVATION_ID",
-  "reason": "purchased",
-  "request_id": "{{$guid}}"
-}
-
-###
-
-### 13. Release Stock - Timeout
-# Release reservation due to timeout
-POST {{baseUrl}}{{apiVersion}}/inventory/release
-Content-Type: application/json
-X-Request-ID: req-release-timeout-{{$guid}}
-
-{
-  "reservation_id": "REPLACE_WITH_ACTUAL_RESERVATION_ID",
-  "reason": "timeout",
-  "request_id": "{{$guid}}"
-}
-
-###############################################################################
-# UPDATE STOCK OPERATIONS
-###############################################################################
-
-### 14. Update Stock - Restock (Add inventory)
-# Add new inventory to existing stock
-PUT {{baseUrl}}{{apiVersion}}/inventory/stock
-Content-Type: application/json
-X-Request-ID: req-update-restock-{{$guid}}
-
-{
-  "product_id": "{{productId}}",
-  "new_stock": 50,
-  "adjustment_type": "restock",
-  "reason": "New shipment received",
-  "reference": "PO-{{$timestamp}}",
-  "request_id": "{{$guid}}",
-  "metadata": {
-    "supplier": "ACME Corp",
-    "warehouse": "WH-001"
-  }
-}
-
-###
-
-### 15. Update Stock - Adjustment
-# Adjust stock for inventory correction
-PUT {{baseUrl}}{{apiVersion}}/inventory/stock
-Content-Type: application/json
-X-Request-ID: req-update-adjustment-{{$guid}}
-
-{
-  "product_id": "{{productId}}",
-  "new_stock": -5,
-  "adjustment_type": "adjustment",
-  "reason": "Inventory audit correction",
-  "reference": "ADJ-{{$timestamp}}",
-  "request_id": "{{$guid}}",
-  "metadata": {
-    "auditor": "John Doe",
-    "audit_date": "2025-10-06"
-  }
-}
-
-###
-
-### 16. Update Stock - Return
-# Add stock from customer return
-PUT {{baseUrl}}{{apiVersion}}/inventory/stock
-Content-Type: application/json
-X-Request-ID: req-update-return-{{$guid}}
-
-{
-  "product_id": "{{productId}}",
-  "new_stock": 3,
-  "adjustment_type": "return",
-  "reason": "Customer return processed",
-  "reference": "RET-{{$timestamp}}",
-  "request_id": "{{$guid}}",
-  "metadata": {
-    "return_reason": "Changed mind",
-    "condition": "new"
-  }
-}
-
-###
-
-### 17. Update Stock - Correction
-# Manual stock correction
-PUT {{baseUrl}}{{apiVersion}}/inventory/stock
-Content-Type: application/json
-X-Request-ID: req-update-correction-{{$guid}}
-
-{
-  "product_id": "{{productId}}",
-  "new_stock": 10,
-  "adjustment_type": "correction",
-  "reason": "Physical count mismatch",
-  "reference": "CORR-{{$timestamp}}",
-  "request_id": "{{$guid}}",
-  "metadata": {
-    "previous_count": 8,
-    "actual_count": 10,
-    "corrected_by": "Admin"
-  }
-}
-
-###############################################################################
-# ERROR HANDLING TESTS
-###############################################################################
-
-### 18. Invalid Product ID Format
-GET {{baseUrl}}{{apiVersion}}/inventory/stock/invalid-format-!!!
-Content-Type: application/json
-X-Request-ID: req-error-format-{{$guid}}
-
-###
-
-### 19. Missing Required Fields
-POST {{baseUrl}}{{apiVersion}}/inventory/reserve
-Content-Type: application/json
-X-Request-ID: req-error-missing-{{$guid}}
-
-{
-  "product_id": "{{productId}}"
-}
-
-###
-
-### 20. Invalid JSON
-POST {{baseUrl}}{{apiVersion}}/inventory/reserve
-Content-Type: application/json
-X-Request-ID: req-error-json-{{$guid}}
-
-{
-  "product_id": "{{productId}}",
-  "quantity": "not-a-number"
-}
-
-###############################################################################
-# 🎯 COMPLETE WORKFLOWS - Business Scenarios
-# These examples show complete end-to-end business flows
-###############################################################################
-
-### 🛍️ WORKFLOW 1: Complete E-commerce Order (SUCCESS PATH)
-# This demonstrates a successful order from reservation to completion
-# 
-# 🎬 SCENARIO: Customer buys a laptop online
-# 👤 Customer: CUST-999
-# 🛒 Product: Laptop HP Pavilion 15 (ID: 2d70d1dc-cd3a-4f40-afb0-52e16445bf36)
-# 💰 Price: $899.99
-# ⏱️ Timeout: 10 minutes for checkout
-
-### Step 1a: Check stock availability BEFORE ordering
-GET {{baseUrl}}{{apiVersion}}/inventory/stock/2d70d1dc-cd3a-4f40-afb0-52e16445bf36
-Content-Type: application/json
-X-Request-ID: workflow-1-check-stock
-
-### Step 1b: Reserve stock for customer checkout
-POST {{baseUrl}}{{apiVersion}}/inventory/reserve
-Content-Type: application/json
-X-Request-ID: workflow-1-reserve
-
-{
-  "product_id": "2d70d1dc-cd3a-4f40-afb0-52e16445bf36",
-  "quantity": 1,
-  "request_id": "order-{{$timestamp}}-laptop",
-  "timeout_seconds": 600,
-  "reason": "Customer checkout - Laptop HP Pavilion 15",
-  "client_id": "web-store",
-  "metadata": {
-    "order_id": "ORD-{{$timestamp}}",
-    "customer_id": "CUST-999",
-    "product_name": "Laptop HP Pavilion 15",
-    "unit_price": "899.99",
-    "currency": "USD",
-    "checkout_session": "session-{{$guid}}",
-    "cart_id": "cart-{{$randomInt 1000 9999}}"
-  }
-}
-
-### Step 1c: Verify stock was reserved (should show reserved_stock increased)
-GET {{baseUrl}}{{apiVersion}}/inventory/stock/2d70d1dc-cd3a-4f40-afb0-52e16445bf36
-Content-Type: application/json
-X-Request-ID: workflow-1-verify-reserve
-
-### Step 1d: Complete order - Release as PURCHASED
-# ⚠️ NOTE: Copy the reservation_id from Step 1b response and replace below
-POST {{baseUrl}}{{apiVersion}}/inventory/release
-Content-Type: application/json
-X-Request-ID: workflow-1-complete
-
-{
-  "reservation_id": "COPY_RESERVATION_ID_FROM_STEP_1B_RESPONSE",
-  "reason": "purchased",
-  "request_id": "complete-{{$timestamp}}"
-}
-
-### Step 1e: Final verification - Stock should be permanently reduced
-GET {{baseUrl}}{{apiVersion}}/inventory/stock/2d70d1dc-cd3a-4f40-afb0-52e16445bf36
-Content-Type: application/json
-X-Request-ID: workflow-1-final-check
-
-# Step 2: Get Stock (verify reservation)
-# GET {{baseUrl}}{{apiVersion}}/inventory/stock/prod-001
-
-# Step 3: Complete Order (release as purchased)
-# POST {{baseUrl}}{{apiVersion}}/inventory/release
-# {
-#   "reservation_id": "USE_ID_FROM_STEP_1",
-#   "reason": "purchased",
-#   "request_id": "workflow-purchase-{{$timestamp}}"
-# }
-
-###
-
-### 🛒 WORKFLOW 2: Abandoned Shopping Cart (CANCELLATION PATH)
-# This demonstrates what happens when a customer abandons their cart
-#
-# 🎬 SCENARIO: Customer adds item to mobile cart but doesn't complete purchase
-# 👤 Customer: Mobile app user
-# 🎧 Product: Sony WH-1000XM4 Headphones (ID: 47569eb2-fe19-43cb-929d-aedfd59dc199)
-# ⏱️ Timeout: 15 minutes for mobile checkout
-# 🚫 Outcome: Customer abandons cart, stock is released
-
-### Step 2a: Check initial stock
-GET {{baseUrl}}{{apiVersion}}/inventory/stock/47569eb2-fe19-43cb-929d-aedfd59dc199
-Content-Type: application/json
-X-Request-ID: workflow-2-initial-stock
-
-### Step 2b: Reserve stock when item added to cart
-POST {{baseUrl}}{{apiVersion}}/inventory/reserve
-Content-Type: application/json
-X-Request-ID: workflow-2-reserve
-
-{
-  "product_id": "47569eb2-fe19-43cb-929d-aedfd59dc199",
-  "quantity": 1,
-  "request_id": "cart-{{$timestamp}}-headphones",
-  "timeout_seconds": 900,
-  "reason": "Added to mobile shopping cart",
-  "client_id": "mobile-app-v2.1",
-  "metadata": {
-    "cart_id": "CART-{{$randomInt 10000 99999}}",
-    "session_id": "mobile-session-{{$guid}}",
-    "product_name": "Sony WH-1000XM4 Headphones",
-    "unit_price": "349.99",
-    "currency": "USD",
-    "platform": "iOS",
-    "app_version": "2.1.0"
-  }
-}
-
-### Step 2c: Verify reservation (stock should be reserved)
-GET {{baseUrl}}{{apiVersion}}/inventory/stock/47569eb2-fe19-43cb-929d-aedfd59dc199
-Content-Type: application/json
-X-Request-ID: workflow-2-verify-reserve
-
-### Step 2d: Customer abandons cart - Release reservation
-# ⚠️ NOTE: Copy the reservation_id from Step 2b response and replace below
-POST {{baseUrl}}{{apiVersion}}/inventory/release
-Content-Type: application/json
-X-Request-ID: workflow-2-abandon
-
-{
-  "reservation_id": "COPY_RESERVATION_ID_FROM_STEP_2B_RESPONSE",
-  "reason": "cart_abandoned",
-  "request_id": "abandon-{{$timestamp}}"
-}
-
-### Step 2e: Verify stock returned to available
-GET {{baseUrl}}{{apiVersion}}/inventory/stock/47569eb2-fe19-43cb-929d-aedfd59dc199
-Content-Type: application/json
-X-Request-ID: workflow-2-final-stock
-
-###
-
-### 📦 WORKFLOW 3: Warehouse Restock and Immediate Sale (SUPPLY CHAIN)
-# This demonstrates the complete supply chain from receiving inventory to selling
-#
-# 🎬 SCENARIO: Monthly SSD shipment arrives and gets sold immediately
-# 🏢 Supplier: Samsung Electronics
-# 💾 Product: Samsung 1TB SSD (ID: f7d85ff3-6dbf-4ee8-bd61-54453610e441)
-# 📦 Shipment: 50 units received
-# 💼 Business: High-demand item that sells immediately
-
-### Step 3a: Check stock before shipment arrives
-GET {{baseUrl}}{{apiVersion}}/inventory/stock/f7d85ff3-6dbf-4ee8-bd61-54453610e441
-Content-Type: application/json
-X-Request-ID: workflow-3-initial-stock
-
-### Step 3b: Process incoming shipment - Add new inventory
-PUT {{baseUrl}}{{apiVersion}}/inventory/stock
-Content-Type: application/json
-X-Request-ID: workflow-3-restock
-
-{
-  "product_id": "f7d85ff3-6dbf-4ee8-bd61-54453610e441",
-  "new_stock": 50,
-  "adjustment_type": "restock",
-  "reason": "Monthly SSD shipment from Samsung",
-  "reference": "PO-SSD-{{$timestamp}}",
-  "request_id": "restock-{{$timestamp}}-samsung",
-  "metadata": {
-    "supplier": "Samsung Electronics",
-    "supplier_code": "SAMSUNG-KR",
-    "warehouse": "WH-CENTRAL",
-    "received_by": "John Warehouse",
-    "shipment_date": "2025-10-06",
-    "batch_number": "SSD-BATCH-{{$timestamp}}",
-    "units_received": 50,
-    "unit_cost": "89.99",
-    "total_value": "4499.50",
-    "quality_check": "passed"
-  }
-}
-
-### Step 3c: Verify new stock levels after restock
-GET {{baseUrl}}{{apiVersion}}/inventory/stock/f7d85ff3-6dbf-4ee8-bd61-54453610e441
-Content-Type: application/json
-X-Request-ID: workflow-3-verify-restock
-
-### Step 3d: Customer immediately orders from fresh stock
-POST {{baseUrl}}{{apiVersion}}/inventory/reserve
-Content-Type: application/json
-X-Request-ID: workflow-3-immediate-sale
-
-{
-  "product_id": "f7d85ff3-6dbf-4ee8-bd61-54453610e441",
-  "quantity": 3,
-  "request_id": "sale-{{$timestamp}}-ssd",
-  "timeout_seconds": 300,
-  "reason": "Customer order for fresh Samsung SSDs",
-  "client_id": "web-store",
-  "metadata": {
-    "order_id": "ORD-SSD-{{$timestamp}}",
-    "customer_id": "CUST-TECH-{{$randomInt 1000 9999}}",
-    "customer_tier": "business",
-    "unit_price": "129.99",
-    "total_amount": "389.97",
-    "source": "direct_purchase"
-  }
-}
-
-### Step 3e: Complete the sale immediately
-# ⚠️ NOTE: Copy the reservation_id from Step 3d response and replace below
-POST {{baseUrl}}{{apiVersion}}/inventory/release
-Content-Type: application/json
-X-Request-ID: workflow-3-complete-sale
-
-{
-  "reservation_id": "COPY_RESERVATION_ID_FROM_STEP_3D_RESPONSE",
-  "reason": "purchased",
-  "request_id": "complete-sale-{{$timestamp}}"
-}
-
-### Step 3f: Final stock verification
-GET {{baseUrl}}{{apiVersion}}/inventory/stock/f7d85ff3-6dbf-4ee8-bd61-54453610e441
-Content-Type: application/json
-X-Request-ID: workflow-3-final-stock
-
-### 🏢 WORKFLOW 4: Corporate Bulk Order (BATCH OPERATIONS)
-# This demonstrates handling a corporate bulk order with multiple products
-#
-# 🎬 SCENARIO: Company orders complete office setup for new employees
-# 🏢 Customer: TechCorp Inc. - New employee onboarding
-# 👥 Recipients: 5 new employees starting Monday
-# 📋 Order: Complete workstation setup (monitor, keyboard, mouse, webcam, hub)
-# ⚡ Priority: All items must be reserved together (atomic operation)
-
-### Step 4a: Check availability of all items before bulk order
-GET {{baseUrl}}{{apiVersion}}/inventory/stock/fc39adf6-784c-43f3-bb0d-9ed79613dd21
-Content-Type: application/json
-X-Request-ID: workflow-4-check-monitor
-
-###
-GET {{baseUrl}}{{apiVersion}}/inventory/stock/e08e3e7e-9126-49e4-9caf-63885a07bd78
-Content-Type: application/json
-X-Request-ID: workflow-4-check-keyboard
-
-###
-GET {{baseUrl}}{{apiVersion}}/inventory/stock/2da3b8d3-69f1-46e6-a068-874532d5126a
-Content-Type: application/json
-X-Request-ID: workflow-4-check-mouse
-
-### Step 4b: Atomic batch reservation - All or nothing
-POST {{baseUrl}}{{apiVersion}}/inventory/batch/reserve
-Content-Type: application/json
-X-Request-ID: workflow-4-batch-reserve
-
-{
-  "requests": [
-    {
-      "product_id": "fc39adf6-784c-43f3-bb0d-9ed79613dd21",
-      "quantity": 5,
-      "request_id": "bulk-{{$timestamp}}-monitors",
-      "timeout_seconds": 1800,
-      "reason": "Corporate bulk order - Dell 27\" monitors for new employees",
-      "client_id": "b2b-portal",
-      "metadata": {
-        "corporate_order_id": "CORP-{{$timestamp}}",
-        "customer_company": "TechCorp Inc",
-        "department": "Engineering",
-        "employee_batch": "Q4-2025-ONBOARDING",
-        "unit_price": "299.99",
-        "item_type": "monitor"
-      }
-    },
-    {
-      "product_id": "e08e3e7e-9126-49e4-9caf-63885a07bd78",
-      "quantity": 5,
-      "request_id": "bulk-{{$timestamp}}-keyboards",
-      "timeout_seconds": 1800,
-      "reason": "Corporate bulk order - Keychron keyboards for new employees",
-      "client_id": "b2b-portal",
-      "metadata": {
-        "corporate_order_id": "CORP-{{$timestamp}}",
-        "customer_company": "TechCorp Inc",
-        "department": "Engineering",
-        "employee_batch": "Q4-2025-ONBOARDING",
-        "unit_price": "89.99",
-        "item_type": "keyboard"
-      }
-    },
-    {
-      "product_id": "2da3b8d3-69f1-46e6-a068-874532d5126a",
-      "quantity": 5,
-      "request_id": "bulk-{{$timestamp}}-mice",
-      "timeout_seconds": 1800,
-      "reason": "Corporate bulk order - Logitech mice for new employees",
-      "client_id": "b2b-portal",
-      "metadata": {
-        "corporate_order_id": "CORP-{{$timestamp}}",
-        "customer_company": "TechCorp Inc",
-        "department": "Engineering",
-        "employee_batch": "Q4-2025-ONBOARDING",
-        "unit_price": "99.99",
-        "item_type": "mouse"
-      }
-    },
-    {
-      "product_id": "cf43ddc3-c4da-4a98-b011-67b33223fae1",
-      "quantity": 5,
-      "request_id": "bulk-{{$timestamp}}-webcams",
-      "timeout_seconds": 1800,
-      "reason": "Corporate bulk order - Webcams for remote work setup",
-      "client_id": "b2b-portal",
-      "metadata": {
-        "corporate_order_id": "CORP-{{$timestamp}}",
-        "customer_company": "TechCorp Inc",
-        "department": "Engineering",
-        "employee_batch": "Q4-2025-ONBOARDING",
-        "unit_price": "79.99",
-        "item_type": "webcam"
-      }
-    },
-    {
-      "product_id": "cbb6a942-8687-4dd0-85ba-82f102f25ce1",
-      "quantity": 5,
-      "request_id": "bulk-{{$timestamp}}-hubs",
-      "timeout_seconds": 1800,
-      "reason": "Corporate bulk order - USB-C hubs for workstation setup",
-      "client_id": "b2b-portal",
-      "metadata": {
-        "corporate_order_id": "CORP-{{$timestamp}}",
-        "customer_company": "TechCorp Inc",
-        "department": "Engineering",
-        "employee_batch": "Q4-2025-ONBOARDING",
-        "unit_price": "49.99",
-        "item_type": "hub"
-      }
-    }
-  ]
-}
-
-### Step 4c: Verify all items were reserved successfully
-GET {{baseUrl}}{{apiVersion}}/inventory/stock/fc39adf6-784c-43f3-bb0d-9ed79613dd21
-Content-Type: application/json
-X-Request-ID: workflow-4-verify-monitor
-
-###
-GET {{baseUrl}}{{apiVersion}}/inventory/stock/e08e3e7e-9126-49e4-9caf-63885a07bd78
-Content-Type: application/json
-X-Request-ID: workflow-4-verify-keyboard
-
-### Step 4d: Corporate order approved - Complete all reservations
-# ⚠️ NOTE: You'll need to copy each reservation_id from Step 4b response
-#          This would typically be done programmatically by the B2B system
-
-# Monitor reservation completion (use actual reservation_id from batch response)
-POST {{baseUrl}}{{apiVersion}}/inventory/release
-Content-Type: application/json
-X-Request-ID: workflow-4-complete-monitors
-
-{
-  "reservation_id": "COPY_MONITOR_RESERVATION_ID",
-  "reason": "corporate_order_fulfilled",
-  "request_id": "complete-corp-monitors-{{$timestamp}}"
-}
-
-# NOTE: In a real system, you would complete all 5 reservations programmatically
-# This demonstrates the pattern for one item
-
-###############################################################################
-# NOTES & REFERENCE DATA
-###############################################################################
-
-# VSCode REST Client Features:
-# - Click "Send Request" above each ### separator
-# - Use {{$guid}} for unique IDs
-# - Use {{$timestamp}} for timestamps
-# - Use {{$randomInt}} for random integers
-# - Variables defined with @variable = value
-# - Environment-specific variables supported
-
-# SEED DATA REFERENCE (Current Stock Levels):
-# ┌─────────────────────────────────────┬──────────────────────────────┬───────────┬──────────┐
-# │ Product ID (UUID)                    │ Product Name                 │ Available │ Reserved │
-# ├─────────────────────────────────────┼──────────────────────────────┼───────────┼──────────┤
-# │ 2d70d1dc-cd3a-4f40-afb0-52e16445bf36 │ Laptop HP Pavilion 15        │    25     │    5     │
-# │ 2da3b8d3-69f1-46e6-a068-874532d5126a │ Mouse Logitech MX Master 3   │   150     │   10     │
-# │ e08e3e7e-9126-49e4-9caf-63885a07bd78 │ Teclado Mecánico Keychron K2 │    80     │   15     │ ⭐ Primary test product
-# │ fc39adf6-784c-43f3-bb0d-9ed79613dd21 │ Monitor Dell 27" 4K          │    30     │    0     │
-# │ cf43ddc3-c4da-4a98-b011-67b33223fae1 │ Webcam Logitech C920         │    45     │    5     │
-# │ 47569eb2-fe19-43cb-929d-aedfd59dc199 │ Audífonos Sony WH-1000XM4    │    60     │   10     │
-# │ f7d85ff3-6dbf-4ee8-bd61-54453610e441 │ SSD Samsung 1TB              │   100     │    0     │
-# │ 834004f0-f683-4e96-ae6b-bb6673869d24 │ RAM Corsair 16GB DDR4        │   200     │   20     │
-# │ cbb6a942-8687-4dd0-85ba-82f102f25ce1 │ Hub USB-C Anker              │    75     │    5     │
-# │ 00907a59-5b4b-4432-8c49-e8bca4683799 │ Cable HDMI 4K 2m             │   300     │    0     │
-# └─────────────────────────────────────┴──────────────────────────────┴───────────┴──────────┘
-
-# EXISTING RESERVATIONS (for testing releases):
-# ┌─────────────────────────────────────┬──────────┬──────────────────────────────┬────────┬───────────┐
-# │ Reservation ID                       │ Req ID   │ Product                      │ Qty    │ Status    │
-# ├─────────────────────────────────────┼──────────┼──────────────────────────────┼────────┼───────────┤
-# │ 11171f8d-a6a4-42d3-9ab1-c6d3d829c83e │ req-001  │ Laptop HP                    │   2    │ confirmed │
-# │ 1e30b07b-03cc-4b8d-9324-e69a316f0d5e │ req-002  │ Mouse Logitech               │   5    │ confirmed │
-# │ b97bdd7a-29bb-498a-8dcc-a523ea4cedd0 │ req-003  │ Teclado Keychron             │   3    │ pending   │ ⭐ Use for release tests
-# │ 846c4180-de70-410f-bc4b-4d287b123f2f │ req-004  │ Audífonos Sony               │  10    │ confirmed │
-# │ ef9a3dc8-860f-4374-ab3c-4317f9f30d8c │ req-005  │ RAM Corsair                  │  15    │ pending   │
-# └─────────────────────────────────────┴──────────┴──────────────────────────────┴────────┴───────────┘
-
-# Available Reasons for Release:
-# - cancelled: Customer cancelled order
-# - purchased: Order completed successfully  
-# - timeout: Reservation expired
-# - expired: System expired reservation
-# - admin: Manual admin release
-
-# Available Adjustment Types for Stock Update:
-# - restock: Adding new inventory
-# - adjustment: Inventory correction  
-# - return: Customer return
-# - correction: Manual correction
-
-# TESTING TIPS:
-# 1. Use Teclado Keychron (e08e3e7e-...) as main test product (80 available)
-# 2. Use existing reservation (b97bdd7a-...) for release testing
-# 3. Products with 0 reserved stock are good for new reservations
-# 4. Always check stock before/after operations with GET /stock/{id}
-# 5. Use realistic quantities (1-10) to avoid hitting max limits
-# 6. Include meaningful metadata for better debugging
-
-###############################################################################
+### Invalid Product ID
+GET {{baseUrl}}/api/v1/inventory/stock/invalid-uuid-format

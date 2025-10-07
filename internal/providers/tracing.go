@@ -2,14 +2,14 @@
 package providers
 
 import (
-"context"
-"fmt"
-"log"
-"sync"
-"time"
+	"context"
+	"fmt"
+	"log"
+	"sync"
+	"time"
 
-"github.com/AJPalacios/inventory/internal/domain"
-"github.com/google/uuid"
+	"github.com/AJPalacios/inventory/internal/domain"
+	"github.com/google/uuid"
 )
 
 // TracingConfig holds configuration for DataDog APM tracing provider.
@@ -69,7 +69,7 @@ type spanLog struct {
 // NewDataDogTracingProvider creates a DataDog APM tracing provider (placeholder).
 func NewDataDogTracingProvider(config TracingConfig) domain.TracingProvider {
 	log.Printf("[DATADOG APM] Tracer initialized: service=%s env=%s agent=%s:%d sample_rate=%.2f",
-config.ServiceName, config.Environment, config.AgentHost, config.AgentPort, config.SampleRate)
+		config.ServiceName, config.Environment, config.AgentHost, config.AgentPort, config.SampleRate)
 
 	return &dataDogTracingProvider{
 		serviceName: config.ServiceName,
@@ -110,7 +110,7 @@ func (d *dataDogTracingProvider) StartSpan(ctx context.Context, operationName st
 	newCtx = context.WithValue(newCtx, parentSpanIDKey, span.spanID)
 
 	log.Printf("[DATADOG APM] Span started: trace_id=%s span_id=%s parent_id=%s operation=%s",
-span.traceID, span.spanID, span.parentID, span.operationName)
+		span.traceID, span.spanID, span.parentID, span.operationName)
 
 	return span, newCtx
 }
@@ -148,9 +148,9 @@ func (d *dataDogTracingProvider) ExtractContext(headers map[string]string) conte
 type contextKey string
 
 const (
-spanContextKey  contextKey = "span"
-traceIDKey      contextKey = "trace_id"
-parentSpanIDKey contextKey = "parent_span_id"
+	spanContextKey  contextKey = "span"
+	traceIDKey      contextKey = "trace_id"
+	parentSpanIDKey contextKey = "parent_span_id"
 )
 
 func (d *dataDogTracingProvider) getTraceID(ctx context.Context) string {
@@ -227,7 +227,7 @@ func (s *dataDogSpan) Finish() {
 	}
 
 	log.Printf("[DATADOG APM] Span finished: trace_id=%s span_id=%s operation=%s duration=%dms status=%s tags=%v",
-s.traceID, s.spanID, s.operationName, s.duration.Milliseconds(), errorStatus, s.tags)
+		s.traceID, s.spanID, s.operationName, s.duration.Milliseconds(), errorStatus, s.tags)
 
 	// In a real implementation, this would serialize and send the span to DataDog Agent
 	// via HTTP POST to http://\{agent_host\}:\{agent_port\}/v0.4/traces
@@ -235,30 +235,30 @@ s.traceID, s.spanID, s.operationName, s.duration.Milliseconds(), errorStatus, s.
 
 // Context returns the span's context.
 func (s *dataDogSpan) Context() context.Context {
-return s.ctx
+	return s.ctx
 }
 
 // noopTracingProvider provides a no-op tracing implementation.
 type noopTracingProvider struct{}
 
 type noopSpan struct {
-ctx context.Context
+	ctx context.Context
 }
 
 func (n *noopTracingProvider) StartSpan(ctx context.Context, operationName string) (domain.Span, context.Context) {
-return &noopSpan{ctx: ctx}, ctx
+	return &noopSpan{ctx: ctx}, ctx
 }
 
 func (n *noopTracingProvider) InjectContext(ctx context.Context) map[string]string {
-return make(map[string]string)
+	return make(map[string]string)
 }
 
 func (n *noopTracingProvider) ExtractContext(headers map[string]string) context.Context {
-return context.Background()
+	return context.Background()
 }
 
-func (s *noopSpan) SetTag(key string, value interface{})                  {}
-func (s *noopSpan) SetError(err error)                                    {}
+func (s *noopSpan) SetTag(key string, value interface{})                 {}
+func (s *noopSpan) SetError(err error)                                   {}
 func (s *noopSpan) LogEvent(event string, fields map[string]interface{}) {}
-func (s *noopSpan) Finish()                                               {}
-func (s *noopSpan) Context() context.Context                              { return s.ctx }
+func (s *noopSpan) Finish()                                              {}
+func (s *noopSpan) Context() context.Context                             { return s.ctx }
