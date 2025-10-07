@@ -213,7 +213,7 @@ func (r *inventoryRepository) UpdateStock(ctx context.Context, req UpdateStockRe
 
 	err := StandardRetry.Execute(ctx, func() error {
 		params := UpdateStockOptimisticParams{
-			ReservedStock: req.TotalStock,
+			ReservedStock: req.TotalStock, // NOTE: Parameter name is ReservedStock but it represents TotalStock for this query
 			ProductID:     req.ProductID,
 			Version:       req.Version,
 		}

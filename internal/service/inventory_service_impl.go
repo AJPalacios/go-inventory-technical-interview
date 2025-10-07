@@ -152,14 +152,28 @@ func (s *inventoryServiceImpl) ReleaseStock(ctx context.Context, req domain.Rele
 		return nil, fmt.Errorf("failed to get inventory: %w", err)
 	}
 
-	// Release stock
-	updatedItem, err := s.repo.ReleaseStockOptimistic(ctx, repository.ReleaseStockOptimisticParams{
-		ProductID:      reservation.ProductID,
-		AvailableStock: reservation.Quantity, // This should be the quantity to release, not the new available stock
-		Version:        item.Version,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to release stock: %w", err)
+	// Release stock - different behavior based on reason
+	var updatedItem repository.InventoryItem
+	if req.Reason == "purchased" {
+		// For purchases: permanently reduce stock (convert reserved to sold)
+		updatedItem, err = s.repo.ConvertReservationToSale(ctx, repository.ConvertReservationToSaleParams{
+			ProductID:       reservation.ProductID,
+			ReservedStock:   reservation.Quantity,
+			ReservedStock_2: reservation.Quantity, // Same value for validation
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert reservation to sale: %w", err)
+		}
+	} else {
+		// For cancellations/timeouts: return reserved stock to available
+		updatedItem, err = s.repo.ReleaseStockOptimistic(ctx, repository.ReleaseStockOptimisticParams{
+			ProductID:      reservation.ProductID,
+			AvailableStock: reservation.Quantity, // This is the quantity to release back to available
+			Version:        item.Version,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to release stock: %w", err)
+		}
 	}
 
 	// Update reservation
@@ -191,10 +205,31 @@ func (s *inventoryServiceImpl) UpdateStock(ctx context.Context, req domain.Updat
 		return nil, fmt.Errorf("failed to get inventory: %w", err)
 	}
 
-	// Calculate new reserved stock (keeping it unchanged for now)
+	// Calculate new total stock based on adjustment type
+	var newTotalStock int64
+	switch req.AdjustmentType {
+	case "restock":
+		// Add new stock to existing total
+		newTotalStock = (item.AvailableStock + item.ReservedStock) + int64(req.NewStock)
+	case "adjustment", "correction":
+		// Set total to new value (keeping reserved stock intact)
+		newTotalStock = int64(req.NewStock)
+	case "return":
+		// Add returned stock to existing total
+		newTotalStock = (item.AvailableStock + item.ReservedStock) + int64(req.NewStock)
+	default:
+		return nil, fmt.Errorf("unsupported adjustment type: %s", req.AdjustmentType)
+	}
+
+	// Ensure new total stock is not below reserved stock
+	if newTotalStock < item.ReservedStock {
+		return nil, fmt.Errorf("new total stock (%d) cannot be below reserved stock (%d)", newTotalStock, item.ReservedStock)
+	}
+
+	// Update stock with new total
 	updatedItem, err := s.repo.UpdateStockOptimistic(ctx, repository.UpdateStockOptimisticParams{
 		ProductID:     req.ProductID,
-		ReservedStock: item.ReservedStock,
+		ReservedStock: newTotalStock, // NOTE: Parameter name is ReservedStock but it represents TotalStock for this query
 		Version:       item.Version,
 	})
 	if err != nil {
