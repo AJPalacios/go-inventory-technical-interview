@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/AJPalacios/inventory/pkg/validator"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -323,7 +324,7 @@ func TestIsValidUUID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := isValidUUID(tt.uuid)
+			result := validator.IsValidUUID(tt.uuid)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -366,7 +367,7 @@ func TestContains(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := contains(tt.slice, tt.item)
+			result := validator.Contains(tt.slice, tt.item)
 			assert.Equal(t, tt.expected, result)
 		})
 	}

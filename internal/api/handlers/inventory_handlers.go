@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/AJPalacios/inventory/internal/domain"
+	"github.com/AJPalacios/inventory/pkg/httputil"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
@@ -111,7 +112,7 @@ func (h *InventoryHandler) ReserveStock(c *gin.Context) {
 	}
 
 	// Generate request ID for idempotency
-	requestID := h.getOrGenerateRequestID(c)
+	requestID := httputil.GetOrGenerateRequestID(c)
 
 	// Convert to service request
 	serviceReq := domain.ReserveStockServiceRequest{
@@ -162,7 +163,7 @@ func (h *InventoryHandler) ReleaseStock(c *gin.Context) {
 	}
 
 	// Generate request ID for idempotency
-	requestID := h.getOrGenerateRequestID(c)
+	requestID := httputil.GetOrGenerateRequestID(c)
 
 	// Convert to service request
 	serviceReq := domain.ReleaseStockServiceRequest{
@@ -209,7 +210,7 @@ func (h *InventoryHandler) UpdateStock(c *gin.Context) {
 	}
 
 	// Generate request ID for idempotency
-	requestID := h.getOrGenerateRequestID(c)
+	requestID := httputil.GetOrGenerateRequestID(c)
 
 	// Convert to service request
 	serviceReq := domain.UpdateStockServiceRequest{
@@ -264,7 +265,7 @@ func (h *InventoryHandler) GetStock(c *gin.Context) {
 		return
 	}
 
-	requestID := h.getOrGenerateRequestID(c)
+	requestID := httputil.GetOrGenerateRequestID(c)
 
 	// Call service
 	result, err := h.inventoryService.GetAvailableStock(c.Request.Context(), productID)
@@ -296,7 +297,7 @@ func (h *InventoryHandler) BatchReserveStock(c *gin.Context) {
 		return
 	}
 
-	requestID := h.getOrGenerateRequestID(c)
+	requestID := httputil.GetOrGenerateRequestID(c)
 
 	// Convert to service requests
 	serviceReqs := make([]domain.ReserveStockServiceRequest, len(req.Requests))
@@ -330,16 +331,6 @@ func (h *InventoryHandler) BatchReserveStock(c *gin.Context) {
 
 // Helper methods
 
-// getOrGenerateRequestID gets request ID from header or generates a new one.
-func (h *InventoryHandler) getOrGenerateRequestID(c *gin.Context) string {
-	requestID := c.GetHeader("X-Request-ID")
-	if requestID == "" {
-		requestID = uuid.New().String()
-		c.Header("X-Request-ID", requestID)
-	}
-	return requestID
-}
-
 // sendResponse sends a successful API response.
 func (h *InventoryHandler) sendResponse(c *gin.Context, status int, data interface{}, requestID string) {
 	response := APIResponse{
@@ -356,7 +347,7 @@ func (h *InventoryHandler) sendResponse(c *gin.Context, status int, data interfa
 
 // handleError handles API errors with proper formatting.
 func (h *InventoryHandler) handleError(c *gin.Context, status int, code, message, details string) {
-	requestID := h.getOrGenerateRequestID(c)
+	requestID := httputil.GetOrGenerateRequestID(c)
 
 	response := APIResponse{
 		Success: false,
@@ -387,7 +378,7 @@ func (h *InventoryHandler) handleError(c *gin.Context, status int, code, message
 
 // handleValidationError handles validation errors from Gin binding.
 func (h *InventoryHandler) handleValidationError(c *gin.Context, err error) {
-	requestID := h.getOrGenerateRequestID(c)
+	requestID := httputil.GetOrGenerateRequestID(c)
 
 	// Extract validation errors
 	var validationErrors []string

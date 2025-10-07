@@ -1,8 +1,7 @@
 package domain
 
 import (
-	"regexp"
-	"strings"
+	"github.com/AJPalacios/inventory/pkg/validator"
 )
 
 // ValidationService implementation for business rules
@@ -39,7 +38,7 @@ func (v *validationService) ValidateReserveRequest(req ReserveStockServiceReques
 	}
 
 	// UUID format validation
-	if !isValidUUID(req.ProductID) {
+	if !validator.IsValidUUID(req.ProductID) {
 		result.Valid = false
 		result.Errors = append(result.Errors, "product_id must be a valid UUID")
 	}
@@ -70,14 +69,14 @@ func (v *validationService) ValidateReleaseRequest(req ReleaseStockServiceReques
 	}
 
 	// UUID format validation
-	if !isValidUUID(req.ReservationID) {
+	if !validator.IsValidUUID(req.ReservationID) {
 		result.Valid = false
 		result.Errors = append(result.Errors, "reservation_id must be a valid UUID")
 	}
 
 	// Valid reason validation
 	validReasons := []string{"cancelled", "purchased", "timeout", "expired", "admin"}
-	if !contains(validReasons, req.Reason) {
+	if !validator.Contains(validReasons, req.Reason) {
 		result.Valid = false
 		result.Errors = append(result.Errors, "reason must be one of: cancelled, purchased, timeout, expired, admin")
 	}
@@ -116,32 +115,17 @@ func (v *validationService) ValidateUpdateRequest(req UpdateStockServiceRequest)
 	}
 
 	// UUID format validation
-	if !isValidUUID(req.ProductID) {
+	if !validator.IsValidUUID(req.ProductID) {
 		result.Valid = false
 		result.Errors = append(result.Errors, "product_id must be a valid UUID")
 	}
 
 	// Valid adjustment type validation
 	validTypes := []string{"restock", "adjustment", "return", "correction"}
-	if !contains(validTypes, req.AdjustmentType) {
+	if !validator.Contains(validTypes, req.AdjustmentType) {
 		result.Valid = false
 		result.Errors = append(result.Errors, "adjustment_type must be one of: restock, adjustment, return, correction")
 	}
 
 	return result
-}
-
-// Helper functions
-func isValidUUID(uuid string) bool {
-	uuidRegex := regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
-	return uuidRegex.MatchString(uuid)
-}
-
-func contains(slice []string, item string) bool {
-	for _, s := range slice {
-		if strings.EqualFold(s, item) {
-			return true
-		}
-	}
-	return false
 }
