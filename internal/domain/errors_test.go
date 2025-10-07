@@ -1,9 +1,9 @@
 package domain
 
 import (
-"testing"
+	"testing"
 
-"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestErrInsufficientStock_Error(t *testing.T) {
@@ -120,9 +120,9 @@ func TestIsInsufficientStockError(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-result := IsInsufficientStockError(tt.err)
-assert.Equal(t, tt.expected, result)
-})
+			result := IsInsufficientStockError(tt.err)
+			assert.Equal(t, tt.expected, result)
+		})
 	}
 }
 
@@ -146,9 +146,9 @@ func TestIsReservationExpiredError(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-result := IsReservationExpiredError(tt.err)
-assert.Equal(t, tt.expected, result)
-})
+			result := IsReservationExpiredError(tt.err)
+			assert.Equal(t, tt.expected, result)
+		})
 	}
 }
 
@@ -172,9 +172,9 @@ func TestIsBusinessRuleError(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-result := IsBusinessRuleError(tt.err)
-assert.Equal(t, tt.expected, result)
-})
+			result := IsBusinessRuleError(tt.err)
+			assert.Equal(t, tt.expected, result)
+		})
 	}
 }
 
@@ -198,9 +198,9 @@ func TestIsServiceUnavailableError(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-result := IsServiceUnavailableError(tt.err)
-assert.Equal(t, tt.expected, result)
-})
+			result := IsServiceUnavailableError(tt.err)
+			assert.Equal(t, tt.expected, result)
+		})
 	}
 }
 
@@ -224,9 +224,9 @@ func TestIsDuplicateRequestError(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-result := IsDuplicateRequestError(tt.err)
-assert.Equal(t, tt.expected, result)
-})
+			result := IsDuplicateRequestError(tt.err)
+			assert.Equal(t, tt.expected, result)
+		})
 	}
 }
 
@@ -250,9 +250,9 @@ func TestIsProductNotFoundError(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-result := IsProductNotFoundError(tt.err)
-assert.Equal(t, tt.expected, result)
-})
+			result := IsProductNotFoundError(tt.err)
+			assert.Equal(t, tt.expected, result)
+		})
 	}
 }
 
@@ -276,8 +276,8 @@ func TestIsReservationNotFoundError(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-result := IsReservationNotFoundError(tt.err)
-assert.Equal(t, tt.expected, result)
-})
+			result := IsReservationNotFoundError(tt.err)
+			assert.Equal(t, tt.expected, result)
+		})
 	}
 }

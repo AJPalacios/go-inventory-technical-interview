@@ -18,9 +18,9 @@ curl --version  # API testing
 ## 🏃‍♂️ 1-Minute Setup
 
 ```bash
-# 1. Clone and setup dependencies
+# 1. Extract and enter directory
+unzip inventory-system.zip
 cd inventory
-make mod
 
 # 2. Setup complete development environment
 make dev
@@ -32,6 +32,8 @@ make run
 **Server starts at**: `http://localhost:8080`
 
 > 💡 **Pro tip**: `make dev` sets up everything automatically - dependencies, database, schema, sample data, code generation, and builds the binary!
+>
+> ⚠️ **Note**: If `make dev` fails with formatting errors, you can skip formatting with: `make mod createdb seed sqlc build`
 
 ---
 
@@ -191,6 +193,40 @@ make mod
 make build
 ```
 
+### Missing tools
+```bash
+# Install Go (if not present)
+# Visit: https://golang.org/doc/install
+
+# Install make (macOS)
+xcode-select --install
+
+# Install make (Linux)
+sudo apt-get install build-essential  # Ubuntu/Debian
+sudo yum install make gcc             # RedHat/CentOS
+
+# Install goimports (for code formatting)
+go install golang.org/x/tools/cmd/goimports@latest
+```
+
+### Alternative setup (if make dev fails)
+```bash
+# Manual setup step by step
+make mod         # Download dependencies
+make createdb    # Create database
+make seed        # Load sample data
+make sqlc        # Generate code
+make build       # Build binary
+make run         # Start server
+```
+
+### Permission issues
+```bash
+# Fix file permissions
+chmod +x Makefile
+chmod -R 755 cmd/ internal/ pkg/
+```
+
 ---
 
 ## 📚 Next Steps
@@ -204,14 +240,39 @@ make build
 
 ---
 
-## 🎯 Quick Performance Test
+## 🎯 Complete Verification
+
+### Test all components work
+```bash
+# 1. Test build system
+make clean && make build
+./bin/inventory-server --version 2>/dev/null || echo "Binary created successfully"
+
+# 2. Test database operations  
+make dropdb && make createdb && make seed
+
+# 3. Test code generation
+make sqlc
+
+# 4. Run test suite
+make test
+
+# 5. Start server and test API
+make run &
+sleep 3
+curl http://localhost:8080/health
+curl http://localhost:8080/api/v1/inventory/stock/e08e3e7e-9126-49e4-9caf-63885a07bd78
+pkill inventory-server
+```
+
+### Quick Performance Test
 
 ```bash
-# Run concurrent operations test
+# Test concurrent operations
 go test ./internal/repository/ -run "Concurrent" -v
 
 # Expected output:
-=== RUN   TestVersionConflictHandling
+=== RUN   TestVersionConflictHandling  
 --- PASS: TestVersionConflictHandling (1.62s)  # 1000+ concurrent ops
 PASS
 ```
