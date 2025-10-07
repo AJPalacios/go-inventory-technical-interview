@@ -19,18 +19,19 @@ curl --version  # API testing
 
 ```bash
 # 1. Clone and setup dependencies
-git clone <repository-url>
 cd inventory
-go mod tidy
+make mod
 
-# 2. Create and setup database
-make createdb
+# 2. Setup complete development environment
+make dev
 
 # 3. Start the server
-make server
+make run
 ```
 
 **Server starts at**: `http://localhost:8080`
+
+> 💡 **Pro tip**: `make dev` sets up everything automatically - dependencies, database, schema, sample data, code generation, and builds the binary!
 
 ---
 
@@ -62,26 +63,31 @@ curl http://localhost:8080/health
 ```bash
 curl -X POST http://localhost:8080/api/v1/inventory/reserve \
   -H "Content-Type: application/json" \
+  -H "X-Request-ID: quickstart-$(date +%s)" \
   -d '{
     "product_id": "e08e3e7e-9126-49e4-9caf-63885a07bd78",
     "quantity": 2,
-    "reason": "quickstart_test"
+    "request_id": "quickstart-test-'$(date +%s)'",
+    "reason": "quickstart_test",
+    "timeout_seconds": 600
   }'
 ```
 
 ### Get Stock Info
 ```bash
-curl http://localhost:8080/api/v1/inventory/e08e3e7e-9126-49e4-9caf-63885a07bd78
+curl http://localhost:8080/api/v1/inventory/stock/e08e3e7e-9126-49e4-9caf-63885a07bd78
 ```
 
 ### Release Reservation
 ```bash
-# Use reservation_id from reserve response
+# Use reservation_id from reserve response above
 curl -X POST http://localhost:8080/api/v1/inventory/release \
   -H "Content-Type: application/json" \
+  -H "X-Request-ID: quickstart-release-$(date +%s)" \
   -d '{
     "reservation_id": "<reservation_id_from_reserve>",
-    "reason": "quickstart_test_complete"
+    "reason": "purchased",
+    "request_id": "quickstart-release-'$(date +%s)'"
   }'
 ```
 
@@ -98,8 +104,14 @@ curl -X POST http://localhost:8080/api/v1/inventory/release \
 ### Using the Web Interface
 
 ```bash
-# Open API documentation (when implemented)
-curl http://localhost:8080/docs
+# Interactive Swagger UI
+open http://localhost:8080/docs
+
+# OpenAPI specification
+curl http://localhost:8080/openapi.json
+
+# Versioned API docs
+curl http://localhost:8080/api/v1/docs
 ```
 
 ---
@@ -108,40 +120,43 @@ curl http://localhost:8080/docs
 
 ```bash
 # Database operations
-make createdb       # Create database with sample data
-make dropdb         # Drop database
-make migrateup      # Apply migrations
-make migratedown    # Rollback migrations
+make createdb       # Create database and apply migrations
+make dropdb         # Drop the database
+make seed          # Load sample data into database
+make migrateup     # Run migrations up (apply schema)
+make migratedown   # Run migrations down (rollback)
 
 # Development
-make server         # Start development server
-make build          # Build binary
-make clean          # Clean build artifacts
+make run           # Build and run the server
+make build         # Build the application
+make clean         # Clean build artifacts
+make dev           # Setup complete development environment
 
 # Testing
-make test           # Run all tests
-make test-coverage  # Run tests with coverage
-make test-race      # Run tests with race detection
+make test          # Run all tests with coverage
 
 # Code quality
-make fmt            # Format code
-make lint           # Run linter
-make vet            # Run go vet
+make format        # Format code with go fmt and goimports
+make lint          # Run golangci-lint
+
+# Dependencies
+make mod           # Download and tidy dependencies
+make sqlc          # Generate code from SQL
 ```
 
 ---
 
 ## 📊 Sample Data
 
-The system comes with pre-loaded sample data:
+The system comes with pre-loaded sample data (loaded with `make seed`):
 
-| Product | UUID | Initial Stock |
-|---------|------|---------------|
-| **Premium Headphones** | `e08e3e7e-9126-49e4-9caf-63885a07bd78` | 150 units |
-| **Wireless Mouse** | `f19f4f8f-a237-5a55-b468-74996b18ce89` | 75 units |
-| **Mechanical Keyboard** | `c27c5c9c-b348-6b66-c579-85aa7c29df9a` | 50 units |
-| **USB-C Cable** | `d38d6d0d-c459-7c77-d68a-96bb8d3aef0b` | 200 units |
-| **Laptop Stand** | `a15a1a1a-d56a-8d88-e79b-a7cc9e4bf1c` | 25 units |
+| Product | UUID | Available/Reserved Stock |
+|---------|------|-------------------------|
+| **Laptop HP Pavilion 15** | `2d70d1dc-cd3a-4f40-afb0-52e16445bf36` | 25/5 units |
+| **Keychron K2 Keyboard** | `e08e3e7e-9126-49e4-9caf-63885a07bd78` | 80/15 units |
+| **Logitech MX Master 3** | `2da3b8d3-69f1-46e6-a068-874532d5126a` | 150/10 units |
+| **Dell 27" 4K Monitor** | `fc39adf6-784c-43f3-bb0d-9ed79613dd21` | 30/0 units |
+| **Samsung 1TB SSD** | `f7d85ff3-6dbf-4ee8-bd61-54453610e441` | 100/0 units |
 
 ---
 
@@ -152,15 +167,17 @@ The system comes with pre-loaded sample data:
 # Check if port 8080 is in use
 lsof -i :8080
 
-# Use different port
-SERVER_PORT=8081 make server
+# Use different port (set in app.env)
+echo "SERVER_PORT=8081" >> app.env
+make run
 ```
 
 ### Database issues
 ```bash
-# Reset database
+# Reset database completely
 make dropdb
 make createdb
+make seed
 
 # Check database file
 ls -la inventory.db
@@ -168,9 +185,9 @@ ls -la inventory.db
 
 ### Build issues
 ```bash
-# Clean and rebuild
+# Clean and rebuild everything
 make clean
-go mod tidy
+make mod
 make build
 ```
 
@@ -178,9 +195,11 @@ make build
 
 ## 📚 Next Steps
 
-- **API Documentation**: See `docs/API_SPECIFICATION.md`
-- **Architecture Guide**: See `ARCHITECTURE.md`
-- **Production Deployment**: See `docs/DEPLOYMENT_GUIDE.md`
+- **Interactive API Docs**: Visit http://localhost:8080/docs
+- **Architecture Guide**: See `/ARCHITECTURE.md`
+- **API Testing Suite**: Explore `test-api/` directory
+- **Complete Test Matrix**: See `test-api/TEST_MATRIX.md`
+- **Production Setup**: See `docs/DEPLOYMENT_GUIDE.md`
 - **Full Test Suite**: Run `make test` for comprehensive validation
 
 ---
