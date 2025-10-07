@@ -61,14 +61,6 @@ type ValidationService interface {
 type MetricsProvider interface {
 	// Counters
 	IncrementCounter(name string, labels map[string]string)
-	IncrementCounterBy(name string, value float64, labels map[string]string)
-
-	// Gauges
-	SetGauge(name string, value float64, labels map[string]string)
-	AddGauge(name string, value float64, labels map[string]string)
-
-	// Histograms
-	RecordHistogram(name string, value float64, labels map[string]string)
 
 	// Timing
 	RecordDuration(name string, duration time.Duration, labels map[string]string)

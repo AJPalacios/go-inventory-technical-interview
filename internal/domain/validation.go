@@ -44,15 +44,7 @@ func (v *validationService) ValidateReserveRequest(req ReserveStockServiceReques
 		result.Errors = append(result.Errors, "product_id must be a valid UUID")
 	}
 
-	// Timeout validation
-	if req.TimeoutSeconds > 0 && req.TimeoutSeconds < 60 {
-		result.Warnings = append(result.Warnings, "timeout less than 60 seconds may cause premature expiration")
-	}
-
-	if req.TimeoutSeconds > 3600 {
-		result.Valid = false
-		result.Errors = append(result.Errors, "timeout cannot exceed 1 hour (3600 seconds)")
-	}
+	// Timeout validation is now handled at the handler layer
 
 	return result
 }
