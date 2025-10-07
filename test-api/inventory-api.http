@@ -5,10 +5,21 @@
 @baseUrl = http://localhost:8080
 @apiVersion = /api/v1
 
-# Variables for testing (update these based on your seed data)
-@productId = prod-001
+# Variables for testing (based on actual seed data)
+@productId = e08e3e7e-9126-49e4-9caf-63885a07bd78  # Teclado Mecánico Keychron K2 (Stock: 80 disponible, 15 reservado)
 @requestId = {{$guid}}
-@reservationId = reservation-123
+@reservationId = b97bdd7a-29bb-498a-8dcc-a523ea4cedd0  # Existing reservation for testing releases
+
+# Alternative product IDs from seed data:
+# @productIdLaptop = 2d70d1dc-cd3a-4f40-afb0-52e16445bf36     # Laptop HP Pavilion 15 (25 available, 5 reserved)
+# @productIdMouse = 2da3b8d3-69f1-46e6-a068-874532d5126a      # Mouse Logitech MX Master 3 (150 available, 10 reserved)
+# @productIdMonitor = fc39adf6-784c-43f3-bb0d-9ed79613dd21    # Monitor Dell 27" 4K (30 available, 0 reserved)
+# @productIdWebcam = cf43ddc3-c4da-4a98-b011-67b33223fae1     # Webcam Logitech C920 (45 available, 5 reserved)
+# @productIdHeadphones = 47569eb2-fe19-43cb-929d-aedfd59dc199 # Audífonos Sony WH-1000XM4 (60 available, 10 reserved)
+# @productIdSSD = f7d85ff3-6dbf-4ee8-bd61-54453610e441        # SSD Samsung 1TB (100 available, 0 reserved)
+# @productIdRAM = 834004f0-f683-4e96-ae6b-bb6673869d24        # RAM Corsair 16GB DDR4 (200 available, 20 reserved)
+# @productIdHub = cbb6a942-8687-4dd0-85ba-82f102f25ce1        # Hub USB-C Anker (75 available, 5 reserved)
+# @productIdCable = 00907a59-5b4b-4432-8c49-e8bca4683799      # Cable HDMI 4K 2m (300 available, 0 reserved)
 
 ###############################################################################
 # HEALTH & STATUS ENDPOINTS
@@ -142,25 +153,34 @@ X-Request-ID: req-batch-{{$guid}}
 {
   "requests": [
     {
-      "product_id": "prod-001",
-      "quantity": 1,
+      "product_id": "2da3b8d3-69f1-46e6-a068-874532d5126a",
+      "quantity": 2,
       "request_id": "batch-{{$guid}}-1",
       "timeout_seconds": 300,
-      "reason": "Batch order item 1"
+      "reason": "Mouse Logitech para oficina",
+      "metadata": {
+        "office_id": "OFF-001"
+      }
     },
     {
-      "product_id": "prod-002",
-      "quantity": 2,
+      "product_id": "cf43ddc3-c4da-4a98-b011-67b33223fae1",
+      "quantity": 1,
       "request_id": "batch-{{$guid}}-2",
       "timeout_seconds": 300,
-      "reason": "Batch order item 2"
+      "reason": "Webcam para reuniones",
+      "metadata": {
+        "department": "IT"
+      }
     },
     {
-      "product_id": "prod-003",
-      "quantity": 1,
+      "product_id": "00907a59-5b4b-4432-8c49-e8bca4683799",
+      "quantity": 3,
       "request_id": "batch-{{$guid}}-3",
       "timeout_seconds": 300,
-      "reason": "Batch order item 3"
+      "reason": "Cables HDMI para setup",
+      "metadata": {
+        "setup_id": "SETUP-{{$timestamp}}"
+      }
     }
   ]
 }
@@ -340,14 +360,18 @@ Content-Type: application/json
 X-Request-ID: workflow-1-reserve
 
 {
-  "product_id": "prod-001",
+  "product_id": "2d70d1dc-cd3a-4f40-afb0-52e16445bf36",
   "quantity": 2,
   "request_id": "workflow-order-{{$timestamp}}",
   "timeout_seconds": 600,
-  "reason": "Customer checkout",
+  "reason": "Customer checkout - Laptop HP",
+  "client_id": "web-store",
   "metadata": {
     "order_id": "ORD-WORKFLOW-001",
-    "customer_id": "CUST-999"
+    "customer_id": "CUST-999",
+    "product_name": "Laptop HP Pavilion 15",
+    "unit_price": "899.99",
+    "currency": "USD"
   }
 }
 
@@ -371,14 +395,17 @@ Content-Type: application/json
 X-Request-ID: workflow-2-reserve
 
 {
-  "product_id": "prod-002",
+  "product_id": "47569eb2-fe19-43cb-929d-aedfd59dc199",
   "quantity": 1,
   "request_id": "workflow-cart-{{$timestamp}}",
   "timeout_seconds": 900,
-  "reason": "Shopping cart",
+  "reason": "Shopping cart - Audífonos Sony",
+  "client_id": "mobile-app",
   "metadata": {
     "cart_id": "CART-WORKFLOW-002",
-    "session_id": "SESSION-{{$timestamp}}"
+    "session_id": "SESSION-{{$timestamp}}",
+    "product_name": "Audífonos Sony WH-1000XM4",
+    "added_at": "{{$timestamp}}"
   }
 }
 
@@ -399,12 +426,19 @@ Content-Type: application/json
 X-Request-ID: workflow-3-restock
 
 {
-  "product_id": "prod-003",
-  "new_stock": 100,
+  "product_id": "f7d85ff3-6dbf-4ee8-bd61-54453610e441",
+  "new_stock": 50,
   "adjustment_type": "restock",
-  "reason": "Monthly shipment",
+  "reason": "Monthly SSD shipment from Samsung",
   "reference": "PO-WORKFLOW-003",
-  "request_id": "workflow-restock-{{$timestamp}}"
+  "request_id": "workflow-restock-{{$timestamp}}",
+  "metadata": {
+    "supplier": "Samsung Electronics",
+    "warehouse": "WH-CENTRAL",
+    "shipment_date": "2025-10-06",
+    "batch_number": "SSD-BATCH-{{$timestamp}}",
+    "units_received": 50
+  }
 }
 
 # Step 2: Check Updated Stock
@@ -421,7 +455,7 @@ X-Request-ID: workflow-3-restock
 # }
 
 ###############################################################################
-# NOTES
+# NOTES & REFERENCE DATA
 ###############################################################################
 
 # VSCode REST Client Features:
@@ -432,17 +466,52 @@ X-Request-ID: workflow-3-restock
 # - Variables defined with @variable = value
 # - Environment-specific variables supported
 
+# SEED DATA REFERENCE (Current Stock Levels):
+# ┌─────────────────────────────────────┬──────────────────────────────┬───────────┬──────────┐
+# │ Product ID (UUID)                    │ Product Name                 │ Available │ Reserved │
+# ├─────────────────────────────────────┼──────────────────────────────┼───────────┼──────────┤
+# │ 2d70d1dc-cd3a-4f40-afb0-52e16445bf36 │ Laptop HP Pavilion 15        │    25     │    5     │
+# │ 2da3b8d3-69f1-46e6-a068-874532d5126a │ Mouse Logitech MX Master 3   │   150     │   10     │
+# │ e08e3e7e-9126-49e4-9caf-63885a07bd78 │ Teclado Mecánico Keychron K2 │    80     │   15     │ ⭐ Primary test product
+# │ fc39adf6-784c-43f3-bb0d-9ed79613dd21 │ Monitor Dell 27" 4K          │    30     │    0     │
+# │ cf43ddc3-c4da-4a98-b011-67b33223fae1 │ Webcam Logitech C920         │    45     │    5     │
+# │ 47569eb2-fe19-43cb-929d-aedfd59dc199 │ Audífonos Sony WH-1000XM4    │    60     │   10     │
+# │ f7d85ff3-6dbf-4ee8-bd61-54453610e441 │ SSD Samsung 1TB              │   100     │    0     │
+# │ 834004f0-f683-4e96-ae6b-bb6673869d24 │ RAM Corsair 16GB DDR4        │   200     │   20     │
+# │ cbb6a942-8687-4dd0-85ba-82f102f25ce1 │ Hub USB-C Anker              │    75     │    5     │
+# │ 00907a59-5b4b-4432-8c49-e8bca4683799 │ Cable HDMI 4K 2m             │   300     │    0     │
+# └─────────────────────────────────────┴──────────────────────────────┴───────────┴──────────┘
+
+# EXISTING RESERVATIONS (for testing releases):
+# ┌─────────────────────────────────────┬──────────┬──────────────────────────────┬────────┬───────────┐
+# │ Reservation ID                       │ Req ID   │ Product                      │ Qty    │ Status    │
+# ├─────────────────────────────────────┼──────────┼──────────────────────────────┼────────┼───────────┤
+# │ 11171f8d-a6a4-42d3-9ab1-c6d3d829c83e │ req-001  │ Laptop HP                    │   2    │ confirmed │
+# │ 1e30b07b-03cc-4b8d-9324-e69a316f0d5e │ req-002  │ Mouse Logitech               │   5    │ confirmed │
+# │ b97bdd7a-29bb-498a-8dcc-a523ea4cedd0 │ req-003  │ Teclado Keychron             │   3    │ pending   │ ⭐ Use for release tests
+# │ 846c4180-de70-410f-bc4b-4d287b123f2f │ req-004  │ Audífonos Sony               │  10    │ confirmed │
+# │ ef9a3dc8-860f-4374-ab3c-4317f9f30d8c │ req-005  │ RAM Corsair                  │  15    │ pending   │
+# └─────────────────────────────────────┴──────────┴──────────────────────────────┴────────┴───────────┘
+
 # Available Reasons for Release:
 # - cancelled: Customer cancelled order
-# - purchased: Order completed successfully
+# - purchased: Order completed successfully  
 # - timeout: Reservation expired
 # - expired: System expired reservation
 # - admin: Manual admin release
 
 # Available Adjustment Types for Stock Update:
 # - restock: Adding new inventory
-# - adjustment: Inventory correction
+# - adjustment: Inventory correction  
 # - return: Customer return
 # - correction: Manual correction
+
+# TESTING TIPS:
+# 1. Use Teclado Keychron (e08e3e7e-...) as main test product (80 available)
+# 2. Use existing reservation (b97bdd7a-...) for release testing
+# 3. Products with 0 reserved stock are good for new reservations
+# 4. Always check stock before/after operations with GET /stock/{id}
+# 5. Use realistic quantities (1-10) to avoid hitting max limits
+# 6. Include meaningful metadata for better debugging
 
 ###############################################################################

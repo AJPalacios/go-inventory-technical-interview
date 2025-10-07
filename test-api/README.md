@@ -110,18 +110,39 @@ Puedes modificar las variables al inicio de `inventory-api.http`:
 ```http
 @baseUrl = http://localhost:8080
 @apiVersion = /api/v1
-@productId = prod-001
+@productId = e08e3e7e-9126-49e4-9caf-63885a07bd78  # Teclado Keychron K2
+@requestId = {{$guid}}
+@reservationId = # Usar ID real de respuesta de reserva
 ```
 
-### Productos de Prueba
+### Productos de Prueba (Datos Reales del Seed)
 
-La base de datos seed incluye estos productos:
+La base de datos seed incluye estos productos con sus UUIDs reales:
 
-- `prod-001` - Laptop
-- `prod-002` - Mouse
-- `prod-003` - Keyboard
-- `prod-004` - Monitor
-- `prod-005` - Headphones
+| Product ID (UUID) | Nombre | Stock Disponible | Stock Reservado |
+|-------------------|--------|------------------|------------------|
+| `2d70d1dc-cd3a-4f40-afb0-52e16445bf36` | Laptop HP Pavilion 15 | 25 | 5 |
+| `2da3b8d3-69f1-46e6-a068-874532d5126a` | Mouse Logitech MX Master 3 | 150 | 10 |
+| `e08e3e7e-9126-49e4-9caf-63885a07bd78` | Teclado Mecánico Keychron K2 | 80 | 15 |
+| `fc39adf6-784c-43f3-bb0d-9ed79613dd21` | Monitor Dell 27" 4K | 30 | 0 |
+| `cf43ddc3-c4da-4a98-b011-67b33223fae1` | Webcam Logitech C920 | 45 | 5 |
+| `47569eb2-fe19-43cb-929d-aedfd59dc199` | Audífonos Sony WH-1000XM4 | 60 | 10 |
+| `f7d85ff3-6dbf-4ee8-bd61-54453610e441` | SSD Samsung 1TB | 100 | 0 |
+| `834004f0-f683-4e96-ae6b-bb6673869d24` | RAM Corsair 16GB DDR4 | 200 | 20 |
+| `cbb6a942-8687-4dd0-85ba-82f102f25ce1` | Hub USB-C Anker | 75 | 5 |
+| `00907a59-5b4b-4432-8c49-e8bca4683799` | Cable HDMI 4K 2m | 300 | 0 |
+
+**Producto Principal para Tests:** `e08e3e7e-9126-49e4-9caf-63885a07bd78` (Teclado Keychron K2)
+
+### Reservas Existentes
+
+| Reservation ID | Request ID | Producto | Cantidad | Status | Expira |
+|----------------|------------|----------|-----------|--------|---------|
+| `11171f8d-a6a4-42d3-9ab1-c6d3d829c83e` | `req-001` | Laptop HP | 2 | confirmed | +7 días |
+| `1e30b07b-03cc-4b8d-9324-e69a316f0d5e` | `req-002` | Mouse Logitech | 5 | confirmed | +5 días |
+| `b97bdd7a-29bb-498a-8dcc-a523ea4cedd0` | `req-003` | Teclado Keychron | 3 | pending | +2 días |
+| `846c4180-de70-410f-bc4b-4d287b123f2f` | `req-004` | Audífonos Sony | 10 | confirmed | +10 días |
+| `ef9a3dc8-860f-4374-ab3c-4317f9f30d8c` | `req-005` | RAM Corsair | 15 | pending | +3 días |
 
 ## �� Ejemplos de Uso
 
@@ -131,17 +152,22 @@ La base de datos seed incluye estos productos:
 # 1. Reservar stock
 POST {{baseUrl}}{{apiVersion}}/inventory/reserve
 Content-Type: application/json
+X-Request-ID: req-order-{{$guid}}
 
 {
-  "product_id": "prod-001",
+  "product_id": "e08e3e7e-9126-49e4-9caf-63885a07bd78",
   "quantity": 2,
   "request_id": "{{$guid}}",
   "timeout_seconds": 600,
-  "reason": "Customer order"
+  "reason": "Customer order",
+  "metadata": {
+    "order_id": "ORD-{{$timestamp}}",
+    "customer_id": "CUST-12345"
+  }
 }
 
 # 2. Verificar stock
-GET {{baseUrl}}{{apiVersion}}/inventory/stock/prod-001
+GET {{baseUrl}}{{apiVersion}}/inventory/stock/e08e3e7e-9126-49e4-9caf-63885a07bd78
 
 # 3. Completar orden (copiar reservation_id de respuesta anterior)
 POST {{baseUrl}}{{apiVersion}}/inventory/release
@@ -160,9 +186,10 @@ Content-Type: application/json
 # Primera petición
 POST {{baseUrl}}{{apiVersion}}/inventory/reserve
 Content-Type: application/json
+X-Request-ID: req-idempotency-1
 
 {
-  "product_id": "prod-001",
+  "product_id": "e08e3e7e-9126-49e4-9caf-63885a07bd78",
   "quantity": 1,
   "request_id": "idempotency-test-123",
   "timeout_seconds": 300,
@@ -172,9 +199,10 @@ Content-Type: application/json
 # Segunda petición con mismo request_id (debe devolver misma respuesta)
 POST {{baseUrl}}{{apiVersion}}/inventory/reserve
 Content-Type: application/json
+X-Request-ID: req-idempotency-2
 
 {
-  "product_id": "prod-001",
+  "product_id": "e08e3e7e-9126-49e4-9caf-63885a07bd78",
   "quantity": 1,
   "request_id": "idempotency-test-123",
   "timeout_seconds": 300,
@@ -188,14 +216,20 @@ Content-Type: application/json
 # Agregar inventario
 PUT {{baseUrl}}{{apiVersion}}/inventory/stock
 Content-Type: application/json
+X-Request-ID: req-restock-{{$guid}}
 
 {
-  "product_id": "prod-001",
+  "product_id": "e08e3e7e-9126-49e4-9caf-63885a07bd78",
   "new_stock": 50,
   "adjustment_type": "restock",
-  "reason": "New shipment",
+  "reason": "New shipment received",
   "reference": "PO-{{$timestamp}}",
-  "request_id": "{{$guid}}"
+  "request_id": "{{$guid}}",
+  "metadata": {
+    "supplier": "Keychron Inc",
+    "warehouse": "WH-001",
+    "batch": "KB-{{$timestamp}}"
+  }
 }
 ```
 
