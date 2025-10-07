@@ -16,7 +16,6 @@ This is a high-performance, distributed inventory management system designed to 
 ### 🚀 **Quick Start**
 - **[QUICKSTART.md](QUICKSTART.md)** - Get running in 5 minutes
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - System architecture with Mermaid diagrams
-- **[DELIVERY_MANIFEST.md](DELIVERY_MANIFEST.md)** - Complete delivery checklist
 
 ### 📚 **API Documentation**
 - **Interactive Docs**: http://localhost:8080/docs (Swagger UI)
@@ -454,7 +453,6 @@ MIT License - See LICENSE file for details.
 For comprehensive project review and technical interview preparation, see:
 
 - **📊 [Delivery Manifest](DELIVERY_MANIFEST.md)** - Complete project overview and checklist
-- **📊 [Project Summary](docs/PROJECT_SUMMARY.md)** - Executive summary for interviews  
 - **📝 [Technical Requirements](docs/TECHNICAL_REQUIREMENTS.md)** - Requirements compliance analysis
 - **�️ [Architecture Guide](docs/ARCHITECTURE.md)** - Technical deep dive (500+ lines)
 - **📡 [API Specification](docs/API_SPECIFICATION.md)** - Complete endpoint documentation

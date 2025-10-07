@@ -154,33 +154,112 @@
 
 ---
 
-## 📊 Escenarios de Negocio
+## 📊 Escenarios de Negocio Completos
 
-### Flujo de Orden Completa
+### 🛒 Flujo A: E-commerce Order (Orden Completa)
 
-| Paso | Acción | Input | Expected | Validación |
-|------|--------|-------|----------|------------|
-| 1 | Consultar stock | GET /stock/{id} | Stock disponible | available_stock > 0 |
-| 2 | Reservar stock | POST /reserve | Reservation created | reservation_id generado |
-| 3 | Verificar reserva | GET /stock/{id} | Stock reducido | reserved_stock incrementado |
-| 4 | Completar orden | POST /release (purchased) | Stock liberado | available_stock actualizado |
-| 5 | Verificar final | GET /stock/{id} | Stock final correcto | Totales cuadran |
+| Paso | Acción | Endpoint | Input | Expected Output | Validación Post-Test |
+|------|--------|----------|-------|-----------------|---------------------|
+| A1 | **Consultar disponibilidad** | `GET /api/v1/inventory/stock/{id}` | Laptop HP (`2d70d1dc-cd3a-4f40-afb0-52e16445bf36`) | `200 OK` + stock info | `available_stock >= 2` |
+| A2 | **Agregar al carrito** | `POST /api/v1/inventory/reserve` | quantity: 2, timeout: 1800, reason: "e-commerce cart" | `201 Created` + reservation_id | Stock reservado: `reserved_stock += 2` |
+| A3 | **Procesar pago** | `GET /api/v1/inventory/stock/{id}` | Verificar reserva activa | Stock reflejado | `available_stock -= 2` |
+| A4 | **Confirmar venta** | `POST /api/v1/inventory/release` | reason: "purchased", reservation_id | `200 OK` | Stock definitivo vendido |
+| A5 | **Verificar transacción** | `GET /api/v1/inventory/stock/{id}` | Estado final del stock | Consistencia total | `total_stock` unchanged, `available_stock` reduced |
 
-### Flujo de Carrito Abandonado
+### 🛍️ Flujo B: Cart Abandonment (Carrito Abandonado)
 
-| Paso | Acción | Input | Expected | Validación |
-|------|--------|-------|----------|------------|
-| 1 | Reservar para carrito | POST /reserve (timeout: 900) | Reservation created | timeout_seconds = 900 |
-| 2 | Esperar abandono | Wait | Reservation exists | Status: confirmed |
-| 3 | Cancelar reserva | POST /release (cancelled) | Stock liberado | available_stock restaurado |
+| Paso | Acción | Endpoint | Input | Expected Output | Validación Post-Test |
+|------|--------|----------|-------|-----------------|---------------------|
+| B1 | **Agregar al carrito** | `POST /api/v1/inventory/reserve` | Sony Headphones + timeout: 900 | `201 Created` | Reserva temporal activa |
+| B2 | **Simular navegación** | `GET /api/v1/inventory/stock/{id}` | Verificar stock reservado | Stock temporalmente reducido | `reserved_stock` incrementado |
+| B3 | **Cliente abandona** | `POST /api/v1/inventory/release` | reason: "cancelled" o "timeout" | `200 OK` | Stock regresa a disponible |
+| B4 | **Verificar liberación** | `GET /api/v1/inventory/stock/{id}` | Stock restaurado | `available_stock` restaurado | Inventory consistency restored |
 
-### Flujo de Restock
+### 📦 Flujo C: Warehouse Operations (Operaciones de Almacén)
 
-| Paso | Acción | Input | Expected | Validación |
-|------|--------|-------|----------|------------|
-| 1 | Stock bajo | GET /stock/{id} | Stock < threshold | available_stock < 10 |
-| 2 | Agregar inventario | PUT /stock (restock) | Stock incrementado | new_stock sumado |
-| 3 | Verificar actualización | GET /stock/{id} | Stock actualizado | available_stock correcto |
+| Paso | Acción | Endpoint | Input | Expected Output | Validación Post-Test |
+|------|--------|----------|-------|-----------------|---------------------|
+| C1 | **Auditoría inicial** | `GET /api/v1/inventory/stock/{id}` | Samsung SSD check | Current stock levels | Baseline establecido |
+| C2 | **Recibir mercancía** | `PUT /api/v1/inventory/stock` | adjustment_type: "restock", +50 units | `200 OK` | `available_stock += 50` |
+| C3 | **Corrección manual** | `PUT /api/v1/inventory/stock` | adjustment_type: "adjustment", reason: "audit correction" | `200 OK` | Discrepancias corregidas |
+| C4 | **Procesar devolución** | `PUT /api/v1/inventory/stock` | adjustment_type: "return", +3 units | `200 OK` | Stock de devoluciones |
+| C5 | **Auditoría final** | `GET /api/v1/inventory/stock/{id}` | Verificar totales | Consistency check | Todos los movimientos reflejados |
+
+### 🏢 Flujo D: B2B Bulk Order (Orden Corporativa)
+
+| Paso | Acción | Endpoint | Input | Expected Output | Validación Post-Test |
+|------|--------|----------|-------|-----------------|---------------------|
+| D1 | **Verificar disponibilidad** | Multiple `GET /stock/{id}` | Lista de productos (5 diferentes) | Stock de cada producto | Sufficient inventory check |
+| D2 | **Reserva en lote** | `POST /api/v1/inventory/batch/reserve` | Array de 5 productos | `201 Created` con resultados | Batch atomic operation |
+| D3 | **Proceso de aprobación** | `GET /api/v1/inventory/stock/{id}` (x5) | Verificar todas las reservas | Stock reservado correctamente | Business approval simulation |
+| D4 | **Confirmar orden** | `POST /api/v1/inventory/release` (x5) | reason: "purchased" para todas | All `200 OK` | Bulk order completion |
+| D5 | **Reporte final** | Multiple `GET /stock/{id}` | Estado final de todos | Inventory updated | Complete business transaction |
+
+### 🔧 Flujo E: Admin Inventory Management (Gestión Administrativa)
+
+| Paso | Acción | Endpoint | Input | Expected Output | Validación Post-Test |
+|------|--------|----------|-------|-----------------|---------------------|
+| E1 | **Revisar reservas activas** | `GET /api/v1/inventory/stock/{id}` | Corsair RAM check | Reserved stock levels | Active reservations identified |
+| E2 | **Liberar reserva administrativa** | `POST /api/v1/inventory/release` | reason: "admin", reservation_id | `200 OK` | Admin override successful |
+| E3 | **Ajuste de inventario** | `PUT /api/v1/inventory/stock` | adjustment_type: "correction" | `200 OK` | Manual inventory correction |
+| E4 | **Auditoría de consistencia** | `GET /api/v1/inventory/stock/{id}` | Final state verification | Consistent totals | Data integrity confirmed |
+
+### 🔄 Flujo F: Idempotency & Error Recovery
+
+| Paso | Acción | Endpoint | Input | Expected Output | Validación Post-Test |
+|------|--------|----------|-------|-----------------|---------------------|
+| F1 | **Primera reserva** | `POST /api/v1/inventory/reserve` | request_id: "idempotent-test-123" | `201 Created` | Reservation created |
+| F2 | **Repetir reserva** | `POST /api/v1/inventory/reserve` | Same request_id | Same response (cached) | No duplicate reservation |
+| F3 | **Error recovery** | `POST /api/v1/inventory/reserve` | Insufficient stock | `409 Conflict` | Proper error handling |
+| F4 | **Retry con nuevo ID** | `POST /api/v1/inventory/reserve` | New request_id, sufficient stock | `201 Created` | Recovery successful |
+
+---
+
+### 📋 Checklist de Flujos Completos
+
+#### ✅ Pre-requisitos
+- [ ] Servidor corriendo (`make run`)
+- [ ] Base de datos con seed data
+- [ ] VSCode con REST Client extension
+- [ ] Files: `complete-workflows.http` ready
+
+#### 🎯 Flujos de Negocio Core
+- [ ] **Flujo A (E-commerce)**: Orden completa exitosa
+- [ ] **Flujo B (Abandonment)**: Carrito abandonado y stock liberado  
+- [ ] **Flujo C (Warehouse)**: Operaciones de almacén completas
+- [ ] **Flujo D (B2B)**: Orden corporativa en lote
+- [ ] **Flujo E (Admin)**: Gestión administrativa
+
+#### 🔧 Flujos Técnicos
+- [ ] **Flujo F (Idempotency)**: Manejo de duplicados
+- [ ] **Error Handling**: Casos de error y recovery
+- [ ] **Concurrency**: Múltiples usuarios simultáneos
+- [ ] **Performance**: Tiempo de respuesta bajo carga
+
+#### 📊 Validaciones de Consistencia
+- [ ] Stock totals siempre cuadran
+- [ ] Reserved + Available = Total Stock
+- [ ] No overselling bajo ninguna circunstancia
+- [ ] Idempotency funciona correctamente
+- [ ] Error responses son consistentes
+
+### 🎯 Success Criteria
+
+| Flujo | Success Rate | Response Time | Data Consistency |
+|-------|-------------|---------------|------------------|
+| A (E-commerce) | 100% | < 200ms avg | ✅ Perfect |
+| B (Abandonment) | 100% | < 100ms avg | ✅ Perfect |
+| C (Warehouse) | 100% | < 300ms avg | ✅ Perfect |
+| D (B2B Bulk) | 100% | < 500ms avg | ✅ Perfect |
+| E (Admin) | 100% | < 150ms avg | ✅ Perfect |
+| F (Technical) | 100% | < 100ms avg | ✅ Perfect |
+
+### 🔗 Quick Links
+
+- **Run Workflows**: Open `test-api/complete-workflows.http` in VSCode
+- **Validation Tests**: Open `test-api/validation-errors.http`
+- **API Documentation**: http://localhost:8080/docs
+- **Health Check**: http://localhost:8080/health
 
 ---
 
