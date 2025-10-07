@@ -581,12 +581,6 @@ All API errors follow this consistent structure:
 
 ## 🔐 **Authentication & Security**
 
-### **API Key Authentication**
-
-```http
-X-API-Key: your-api-key-here
-```
-
 ### **Idempotency**
 
 For safe retry operations, include an idempotency key:
