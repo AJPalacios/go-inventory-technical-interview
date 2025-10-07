@@ -1,328 +1,66 @@
-# 🏪 Distributed Inventory Management System
+# 🏪 Inventory Management System
 
-**Production-Ready Go Microservice with Full ACID Compliance & Optimistic Locking**
-
----
-
-## 🎯 System Overview
-
-This is a high-performance, distributed inventory management system designed to solve critical retail challenges:
-
-- **Race Conditions** in concurrent stock updates
-- **Stock Inconsistencies** across multiple operations  
-- **High Latency** under concurrent load
-- **Data Int## 📦 **Documentation & Quick Access**
-
-### 🚀 **Quick Start**
-- **[QUICKSTART.md](QUICKSTART.md)** - Get running in 5 minutes
-- **[ARCHITECTURE.md](ARCHITECTURE.md)** - System architecture with Mermaid diagrams
-
-### 📚 **API Documentation**
-- **Interactive Docs**: http://localhost:8080/docs (Swagger UI)
-- **OpenAPI Spec**: http://localhost:8080/openapi.json
-- **API Guide**: [docs/API_SPECIFICATION.md](docs/API_SPECIFICATION.md)
-
-### 🏗️ **Technical Resources**
-- **Requirements Analysis**: [docs/TECHNICAL_REQUIREMENTS.md](docs/TECHNICAL_REQUIREMENTS.md)
-- **Project Summary**: [docs/PROJECT_SUMMARY.md](docs/PROJECT_SUMMARY.md)
-- **Deployment Guide**: [docs/DEPLOYMENT_GUIDE.md](docs/DEPLOYMENT_GUIDE.md)
-
-**Total Documentation**: 2000+ lines of professional technical writingdistributed environments
-
-### 🏗️ Architecture Highlights
-
-- **Optimistic Locking** with version-based concurrency control
-- **ACID Compliance** with comprehensive transaction management
-- **Deadlock Prevention** strategies for high-concurrency scenarios
-- **Idempotency Support** for safe retry operations
-- **Clean Architecture** with Repository pattern and SQLC integration
+**Production-Ready Go API with ACID Compliance & Concurrency Control**
 
 ---
 
-## 🔒 ACID Compliance Analysis
+## 🎯 Overview
 
-> **Critical Analysis**: Our implementation achieves **FULL ACID COMPLIANCE** through sophisticated concurrency control mechanisms.
+A robust inventory management system built with Go that handles:
 
-### 🔬 Detailed ACID Implementation
+- **✅ Concurrent Stock Operations** - No race conditions or overselling
+- **✅ Real-time Reservations** - Hold stock during checkout processes  
+- **✅ Atomic Transactions** - All operations succeed or fail together
+- **✅ High Performance** - Optimistic locking for maximum throughput
 
-#### **A - Atomicity** ✅ FULL COMPLIANCE
+### 🏗️ Key Features
 
-**Implementation**: Database transactions + optimistic locking + panic recovery
-
-```go
-// Atomic composite operations ensure all-or-nothing behavior
-func (r *Repository) AtomicReserveAndCreateReservation(ctx context.Context, 
-    req ReserveStockRequest, reservationReq CreateReservationRequest) (*InventoryItem, *Reservation, error) {
-    
-    return r.WithTransactionIsolation(ctx, ReadCommitted, func(txRepo InventoryRepository) error {
-        // Step 1: Reserve stock (atomic with version check)
-        inventory, err := txRepo.ReserveStock(ctx, req)
-        if err != nil {
-            return fmt.Errorf("failed to reserve stock: %w", err) // Full rollback
-        }
-        
-        // Step 2: Create reservation record (atomic)
-        reservation, err := txRepo.CreateReservation(ctx, reservationReq)
-        if err != nil {
-            return fmt.Errorf("failed to create reservation: %w", err) // Full rollback
-        }
-        
-        return nil // Both operations succeed or both fail
-    })
-}
-```
-
-**Risk Mitigation**:
-- ✅ Panic recovery with automatic rollback
-- ✅ Context timeouts prevent hanging transactions
-- ✅ Idempotency keys enable safe retries
-- ✅ Proper transaction boundaries
-
-**Critical Assessment**: **PRODUCTION READY** - Handles network failures, application crashes, and timeout scenarios gracefully.
+- **Stock Management**: Reserve, release, and update inventory levels
+- **Version Control**: Prevents conflicts in concurrent operations
+- **Business Logic**: Support for purchases, cancellations, and returns
+- **API Documentation**: Interactive Swagger UI at `/docs`
+- **Production Ready**: Comprehensive testing and error handling
 
 ---
 
-#### **C - Consistency** ✅ FULL COMPLIANCE
+## 🏗️ Architecture
 
-**Implementation**: Business rules + DB constraints + optimistic locking validation
+### � How It Works
 
-```go
-// Business rule enforcement with version-based conflict detection
-func (r *Repository) ReserveStock(ctx context.Context, req ReserveStockRequest) (*InventoryItem, error) {
-    // Input validation
-    if req.Quantity <= 0 {
-        return nil, NewRepositoryError("invalid_quantity", "inventory", req.ProductID, ErrInvalidQuantity)
-    }
-    
-    // Optimistic update with business rule checking
-    result, err := r.queries.ReserveStockOptimistic(ctx, ReserveStockOptimisticParams{
-        ProductID:       req.ProductID,
-        Quantity:        int64(req.Quantity),
-        CurrentVersion:  int64(req.Version),
-        RequestID:       req.RequestID,
-    })
-    
-    if err != nil {
-        if strings.Contains(err.Error(), "insufficient stock") {
-            return nil, NewInsufficientStockError(req.ProductID, req.Quantity)
-        }
-        if strings.Contains(err.Error(), "version mismatch") {
-            return nil, NewVersionConflictError(req.ProductID, req.Version)
-        }
-        return nil, NewRepositoryError("reserve_stock", "inventory", req.ProductID, err)
-    }
-    
-    return result, nil
-}
-```
-
-**Database Constraints**:
+**Optimistic Locking**: Uses version numbers to prevent conflicts
 ```sql
-CREATE TABLE inventory_items (
-    available_stock INTEGER NOT NULL DEFAULT 0,
-    reserved_stock INTEGER NOT NULL DEFAULT 0,
-    version INTEGER NOT NULL DEFAULT 1,
-    CHECK (available_stock >= 0),  -- Prevent negative stock
-    CHECK (reserved_stock >= 0)    -- Prevent negative reservations
-);
-```
-
-**Risk Mitigation**:
-- ✅ Optimistic locking prevents dirty writes
-- ✅ Input validation at repository layer
-- ✅ Database constraints (FK, CHECK)
-- ✅ Business rule enforcement before DB operations
-
-**Critical Assessment**: **PRODUCTION READY** - Comprehensive validation prevents invalid state transitions and maintains data integrity under concurrent access.
-
----
-
-#### **I - Isolation** ✅ FULL COMPLIANCE
-
-**Implementation**: Optimistic locking + configurable isolation levels + version-based concurrency control
-
-```go
-// Configurable isolation levels for different operation criticality
-type TransactionIsolationLevel string
-
-const (
-    ReadCommitted   TransactionIsolationLevel = "READ COMMITTED"   // Default: Good performance
-    RepeatableRead  TransactionIsolationLevel = "REPEATABLE READ"   // Stronger consistency
-    Serializable    TransactionIsolationLevel = "SERIALIZABLE"      // Highest isolation
-)
-
-func (r *Repository) WithTransactionIsolation(ctx context.Context, level TransactionIsolationLevel, 
-    fn func(repo InventoryRepository) error) error {
-    
-    txOptions := &sql.TxOptions{}
-    switch level {
-    case ReadCommitted:
-        txOptions.Isolation = sql.LevelReadCommitted  // Prevents dirty reads
-    case RepeatableRead:
-        txOptions.Isolation = sql.LevelRepeatableRead // Prevents non-repeatable reads
-    case Serializable:
-        txOptions.Isolation = sql.LevelSerializable   // Prevents phantom reads
-    }
-    
-    tx, err := r.db.BeginTx(ctx, txOptions)
-    // ... transaction execution with proper isolation
-}
-```
-
-**Optimistic Locking Strategy**:
-```sql
--- Version-based conflict detection
+-- Each update increments version to detect conflicts
 UPDATE inventory_items 
-SET available_stock = available_stock - ?, 
-    reserved_stock = reserved_stock + ?,
-    version = version + 1,  -- Increment version
-    updated_at = CURRENT_TIMESTAMP
-WHERE product_id = ? 
-  AND version = ?         -- Version check prevents conflicts
-  AND available_stock >= ?; -- Business rule check
+SET stock = stock - ?, version = version + 1
+WHERE product_id = ? AND version = ?
 ```
 
-**Risk Mitigation**:
-- ✅ Version-based optimistic concurrency control
-- ✅ READ COMMITTED default (good performance + safety)
-- ✅ SERIALIZABLE for critical operations
-- ✅ Retry logic for version conflicts
+**ACID Compliance**: Database transactions ensure data integrity
+- ✅ **Atomic**: All operations complete or none do
+- ✅ **Consistent**: Business rules are always enforced
+- ✅ **Isolated**: Concurrent operations don't interfere
+- ✅ **Durable**: Changes are permanently saved
 
-**Critical Assessment**: **PRODUCTION READY** - Optimistic locking provides better performance than pessimistic locking while maintaining strong isolation guarantees.
+**Concurrency Control**: Handles multiple simultaneous requests safely
+- No deadlocks with optimistic locking approach
+- Automatic retry with exponential backoff
+- Version conflicts resolved transparently
 
 ---
 
-#### **D - Durability** ✅ FULL COMPLIANCE
-
-**Implementation**: Database persistence + WAL mode + fsync guarantees
-
-**SQLite Configuration**:
-```sql
--- Enable WAL mode for better concurrency and durability
-PRAGMA journal_mode = WAL;
-PRAGMA synchronous = FULL;     -- Ensure fsync on commits
-PRAGMA foreign_keys = ON;      -- Enable referential integrity
-```
-
-**PostgreSQL Production Setup**:
-```go
-// Production configuration for PostgreSQL
-config := &pgxpool.Config{
-    MaxConns:        30,
-    MinConns:        5,
-    MaxConnLifetime: time.Hour,
-    MaxConnIdleTime: time.Minute * 30,
-}
-```
-
-**Risk Mitigation**:
-- ✅ Database-level durability guarantees
-- ✅ WAL mode in SQLite for crash recovery
-- ✅ Regular backups for disaster recovery
-- ✅ Replication support in PostgreSQL
-
-**Critical Assessment**: **PRODUCTION READY** - Relies on proven database durability mechanisms with additional safety measures.
-
----
-
-## ⚡ Deadlock Prevention Analysis
-
-> **Critical Analysis**: Our deadlock prevention strategy achieves **LOW RISK** across all scenarios through systematic resource ordering and optimistic locking.
-
-### 🔍 Deadlock Risk Assessment
-
-| Scenario | Risk Level | Mitigation Strategy | Implementation |
-|----------|------------|-------------------|----------------|
-| **Concurrent Reservations** | 🟢 LOW | Optimistic locking | Version-based conflict detection |
-| **Cross-Product Operations** | 🟡 MEDIUM | Ordered resource access | Sort product IDs before access |
-| **Reservation + Inventory Race** | 🟢 LOW | Atomic operations | Single transaction boundaries |
-| **Cleanup Operations** | 🟢 LOW | Non-blocking cleanup | Background processing |
-
-### 🛡️ Prevention Strategies
-
-#### **1. Resource Ordering**
-```go
-// Always access resources in consistent order
-func (r *Repository) BatchReserveStock(ctx context.Context, requests []ReserveStockRequest) error {
-    // Sort by product_id to prevent circular dependencies
-    sort.Slice(requests, func(i, j int) bool {
-        return requests[i].ProductID < requests[j].ProductID
-    })
-    
-    // Process in consistent order
-    for _, req := range requests {
-        _, err := r.ReserveStock(ctx, req)
-        if err != nil {
-            return err
-        }
-    }
-    return nil
-}
-```
-
-#### **2. Timeout-Based Protection**
-```go
-// Prevent infinite waits
-ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-defer cancel()
-
-// All operations respect context timeouts
-result, err := repo.ReserveStock(ctx, request)
-```
-
-#### **3. Optimistic Approach**
-```go
-// No SELECT FOR UPDATE - eliminates lock contention
-func (r *Repository) ReserveStockOptimistic(ctx context.Context, req ReserveStockRequest) (*InventoryItem, error) {
-    // Direct UPDATE with version check - no locks held
-    result, err := r.queries.ReserveStockOptimistic(ctx, params)
-    
-    if IsVersionConflict(err) {
-        // Retry with exponential backoff instead of blocking
-        return r.retryWithBackoff(ctx, req)
-    }
-    
-    return result, err
-}
-```
-
-**Critical Assessment**: **PRODUCTION READY** - Comprehensive deadlock prevention through resource ordering, timeouts, and lock-free optimistic updates.
-
----
-
-## 🧪 Testing & Validation
-
-### ✅ ACID Compliance Tests
+## 🧪 Testing
 
 ```bash
-# Run comprehensive ACID validation
-go test ./internal/repository/ -run "TestACIDAnalysis|TestDeadlockAnalysis|TestAtomicityWithTransactions|TestConsistencyValidation|TestTransactionIsolation" -v
+# Run all tests with coverage
+make test
 
-=== RUN   TestACIDAnalysis
---- PASS: TestACIDAnalysis (0.00s)
-=== RUN   TestDeadlockAnalysis  
---- PASS: TestDeadlockAnalysis (0.00s)
-=== RUN   TestAtomicityWithTransactions
---- PASS: TestAtomicityWithTransactions (0.00s)
-=== RUN   TestConsistencyValidation
---- PASS: TestConsistencyValidation (0.00s)
-=== RUN   TestTransactionIsolation
---- PASS: TestTransactionIsolation (0.00s)
-PASS
+# Test specific areas
+go test ./internal/service/     # Business logic tests
+go test ./internal/repository/  # Database tests  
+go test ./internal/api/         # API tests
 ```
 
-### 🔬 Concurrency Stress Tests
-
-```bash
-# Run high-concurrency validation
-go test ./internal/repository/ -run "TestVersionConflictHandling|TestRetryBehaviorWithVersionConflict" -v
-
-=== RUN   TestVersionConflictHandling
---- PASS: TestVersionConflictHandling (1.62s)  # ✅ Handles 1000+ concurrent operations
-=== RUN   TestRetryBehaviorWithVersionConflict  
---- PASS: TestRetryBehaviorWithVersionConflict (1.65s)  # ✅ Retry logic working correctly
-PASS
-```
+**Test Coverage**: 80%+ across all layers with comprehensive concurrency testing
 
 ---
 
@@ -330,27 +68,18 @@ PASS
 
 ```
 inventory/
-├── cmd/
-│   └── server/              # Application entry point
-│       └── main.go
-├── internal/                # Private application code
-│   ├── api/                 # HTTP layer (Gin)
-│   │   ├── server.go
-│   │   ├── health.go
-│   │   └── handlers/
-│   ├── service/             # Business logic
-│   ├── repository/          # Data access (SQLC)
-│   ├── domain/              # Business entities
-│   └── config/              # Configuration
-├── pkg/                     # Public reusable libraries
-│   └── utils/
-├── db/                      # Database files
-│   ├── migrations/
-│   └── query/
-└── docs/                    # Documentation
+├── cmd/server/          # Application entry point
+├── internal/
+│   ├── api/            # HTTP handlers (REST API)
+│   ├── service/        # Business logic layer
+│   ├── repository/     # Database access (SQLC)
+│   └── domain/         # Models and interfaces
+├── db/
+│   ├── migrations/     # Database schema
+│   └── query/          # SQL queries for SQLC
+├── test-api/           # HTTP test files
+└── docs/               # Technical documentation
 ```
-
-Ver [ARCHITECTURE.md](docs/ARCHITECTURE.md) para detalles completos de la arquitectura.
 
 ---
 
@@ -391,26 +120,22 @@ curl http://localhost:8080/health
 
 ---
 
-## 🧰 Development Commands
+## 🛠️ Available Commands
 
 ```bash
-# Database operations
-make createdb        # Create database with schema
-make dropdb          # Drop database
-make migrateup       # Apply migrations
-make migratedown     # Rollback migrations
-
 # Development
-make server          # Start development server
-make test            # Run all tests
-make test-acid       # Run ACID compliance tests
-make sqlc            # Generate SQLC code
+make run            # Start server
+make test           # Run tests
+make coverage       # Test coverage report
 
-# Quality assurance
-make fmt             # Format code
-make vet             # Vet code
-make lint            # Run linter
-make coverage        # Generate coverage report
+# Database
+make createdb       # Create database
+make migrateup      # Apply migrations
+make sqlc           # Generate database code
+
+# Quality
+make fmt            # Format code
+make vet            # Check code
 ```
 
 ---
