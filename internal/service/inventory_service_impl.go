@@ -75,10 +75,9 @@ func (s *inventoryServiceImpl) ReserveStock(ctx context.Context, req domain.Rese
 	}
 
 	// Reserve stock
-	newAvailable := item.AvailableStock - quantityInt64
 	_, err = s.repo.ReserveStockOptimistic(ctx, repository.ReserveStockOptimisticParams{
 		ProductID:      req.ProductID,
-		AvailableStock: newAvailable,
+		AvailableStock: quantityInt64, // NOTE: Despite name, this is actually the quantity to reserve (SQL uses ?1 for both operations)
 		Version:        item.Version,
 	})
 	if err != nil {
@@ -139,8 +138,8 @@ func (s *inventoryServiceImpl) ReleaseStock(ctx context.Context, req domain.Rele
 		return nil, fmt.Errorf("failed to get reservation: %w", err)
 	}
 
-	// Check active
-	if reservation.Status != "active" {
+	// Check active or pending (both are valid for release)
+	if reservation.Status != "active" && reservation.Status != "pending" {
 		return nil, domain.ErrReservationNotActive{
 			ReservationID: req.ReservationID,
 			Status:        reservation.Status,
@@ -154,10 +153,9 @@ func (s *inventoryServiceImpl) ReleaseStock(ctx context.Context, req domain.Rele
 	}
 
 	// Release stock
-	newAvailable := item.AvailableStock + reservation.Quantity
 	updatedItem, err := s.repo.ReleaseStockOptimistic(ctx, repository.ReleaseStockOptimisticParams{
 		ProductID:      reservation.ProductID,
-		AvailableStock: newAvailable,
+		AvailableStock: reservation.Quantity, // This should be the quantity to release, not the new available stock
 		Version:        item.Version,
 	})
 	if err != nil {

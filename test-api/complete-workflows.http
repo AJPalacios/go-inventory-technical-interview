@@ -60,7 +60,7 @@ X-Request-ID: workflow-a-complete
 
 {
   "reservation_id": "PASTE_RESERVATION_ID_FROM_A2",
-  "reason": "order_completed",
+  "reason": "purchased",
   "request_id": "complete-{{$timestamp}}"
 }
 
@@ -114,7 +114,7 @@ X-Request-ID: workflow-b-abandon
 
 {
   "reservation_id": "PASTE_RESERVATION_ID_FROM_B2",
-  "reason": "cart_abandoned",
+  "reason": "cancelled",
   "request_id": "abandon-{{$timestamp}}"
 }
 
@@ -188,7 +188,7 @@ X-Request-ID: workflow-c-fulfill
 
 {
   "reservation_id": "PASTE_RESERVATION_ID_FROM_C4",
-  "reason": "order_fulfilled",
+  "reason": "purchased",
   "request_id": "fulfill-{{$timestamp}}"
 }
 
@@ -289,7 +289,7 @@ X-Request-ID: workflow-d-complete
 
 {
   "reservation_id": "PASTE_RESERVATION_ID_FROM_D2_BATCH",
-  "reason": "corporate_order_approved",
+  "reason": "purchased",
   "request_id": "corp-complete-{{$timestamp}}"
 }
 
