@@ -36,6 +36,11 @@ func SetupRoutes(engine *gin.Engine, config RouterConfig) {
 	// Root health check endpoint (simple service health)
 	engine.GET("/health", rootHealthCheck)
 
+	// Root documentation endpoints for easy access
+	docsHandler := handlers.NewDocsHandler()
+	engine.GET("/docs", docsHandler.GetSwaggerUI)
+	engine.GET("/openapi.json", docsHandler.GetOpenAPISpec)
+
 	// API v1 group
 	v1 := engine.Group("/api/v1")
 	{
@@ -65,7 +70,18 @@ func setupInventoryRoutes(v1 *gin.RouterGroup, handler *handlers.InventoryHandle
 			batch.POST("/reserve", handler.BatchReserveStock)
 		}
 	}
-} // Middleware functions
+
+	// Documentation endpoints
+	docsHandler := handlers.NewDocsHandler()
+	docs := v1.Group("/docs")
+	{
+		docs.GET("", docsHandler.GetAPIDocumentation)
+		docs.GET("/openapi.json", docsHandler.GetOpenAPISpec)
+		docs.GET("/swagger", docsHandler.GetSwaggerUI)
+	}
+}
+
+// Middleware functions
 
 // ginLogger provides custom logging middleware for Gin.
 func ginLogger(logger domain.Logger) gin.HandlerFunc {
